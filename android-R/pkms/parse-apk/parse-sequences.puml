@@ -1,0 +1,44 @@
+@startuml
+participant PackageManagerService as a
+participant ParallelPackageParser as b
+participant PackageParser2 as c
+participant ParsingPackageUtils as d
+participant ApkLiteParseUtils as e
+participant Callback as f
+participant ParseTypeImpl as g
+participant PackageImpl as h
+
+a->b : <init>()
+activate b
+a->c : <init>()
+activate c
+c->d : <init>()
+activate d
+c->f : <init>()
+activate f
+c->g : <init>()
+
+a->b : submit()
+b->c : parsePackage()
+c->d : parsePackage()
+d->d : parseClusterPackage()
+d->e : parseClusterPackageLite()
+activate e
+e->e : parseApkLite() 3 params
+e->e : parseApkLiteInner()
+e->e : parseApkLite() 5 params
+return ParseResult<PackageParser.PackageLite>
+d->d : parseBaseApk()
+d->e : parsePackageSplitNames()
+activate e
+return ParseResult<Pair<String, String>>
+d->f : startParsingPackage()
+f->h : forParsing()
+activate h
+h->h : <init>()
+return ParsingPackage
+return ParsingPackage
+d->d : parseBaseApkTags()
+return ParseResult<ParsingPackage>
+return ParsedPackage
+@enduml
