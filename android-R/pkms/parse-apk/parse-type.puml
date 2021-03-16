@@ -1,0 +1,32 @@
+@startuml
+interface ParseInput {
+    <ResultType> ParseResult<ResultType> success(ResultType result)
+    <ResultType> ParseResult<ResultType> skip(@NonNull String parseError)
+    <ResultType> ParseResult<ResultType> error(int parseError)
+    <ResultType> ParseResult<ResultType> error(@NonNull String parseError)
+    <ResultType> ParseResult<ResultType> error(int parseError, @Nullable String errorMessage)
+    <ResultType> ParseResult<ResultType> error(int parseError, @Nullable String errorMessage, @Nullable Exception exception)
+    <ResultType> ParseResult<ResultType> error(ParseResult<?> result)
+}
+
+interface ParseResult<ResultType> {
+    boolean isSuccess()
+    boolean isError()
+    ResultType getResult()
+    int getErrorCode()
+    String getErrorMessage()
+    Exception getException()
+}
+class ParseTypeImpl {
+    - Callback mCallback
+    - Object mResult
+    - int mErrorCode
+    - String mErrorMessage
+    - Exception mException
+    - ArrayMap<Long, String> mDeferredErrors
+    - String mPackageName
+    - Integer mTargetSdkVersion
+}
+ParseResult<|..ParseTypeImpl
+ParseInput<|..ParseTypeImpl
+@enduml
