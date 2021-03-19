@@ -8,14 +8,14 @@ participant Callback as f
 participant ParseTypeImpl as g
 participant PackageImpl as h
 
+a->f : <init>()
+activate f
 a->b : <init>()
 activate b
 a->c : <init>()
 activate c
 c->d : <init>()
 activate d
-c->f : <init>()
-activate f
 c->g : <init>()
 
 a->b : submit()
@@ -32,7 +32,10 @@ d->d : parseBaseApk()
 d->e : parsePackageSplitNames()
 activate e
 return ParseResult<Pair<String, String>>
+
+
 d->f : startParsingPackage()
+activate f
 f->h : forParsing()
 activate h
 h->h : <init>()
