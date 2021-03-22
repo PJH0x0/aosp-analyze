@@ -1,0 +1,19 @@
+@startuml
+participant SystemServer as a
+participant PackageManagerService as b
+participant ParallelPackageParser as c
+
+a->b : main()
+b->b : <init>()
+activate b
+b->b : scanDirTracedLI()
+b->b : scanDirLI()
+b->c : submit()
+activate c
+return ParallelPackageParser.ParseResult
+b->b : addForInitLI()
+b->b : scanPackageNewLI()
+b->b : scanPackageOnlyLI()
+b->b : reconcilePackagesLocked()
+b->b : commitReconciledScanResultLocked()
+@enduml
