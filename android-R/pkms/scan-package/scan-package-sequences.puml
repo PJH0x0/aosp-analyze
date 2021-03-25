@@ -16,4 +16,5 @@ b->b : scanPackageNewLI()
 b->b : scanPackageOnlyLI()
 b->b : reconcilePackagesLocked()
 b->b : commitReconciledScanResultLocked()
+b->b : commitPackageSettings()
 @enduml

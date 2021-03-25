@@ -140,7 +140,23 @@ scanDirLI的逻辑比较简单，
 
 这部分主要的逻辑是更新packageSetting和nativelibrary的解析
 
-1. 确定是否需要获取abi，如果packageSetting，如果应用已安装，则无需更改cpuAbi，如果未安装，则需要解析native库
+1. 确定是否需要获取abi(`needToDeriveAbi`)，如果packageSetting，如果应用已安装，则无需更改cpuAbi，如果未安装，则需要解析native库
 2. 获取\<uses-static-library>标签，这个我不知道是干嘛的，目前还没遇到这种标签
-3. 更新或创建新的`PackageSetting`
+3. 更新或创建新的`PackageSetting`，创建的情况有两种，首次安装应用或者是恢复出厂开机
+4. 根据第一步获取的`needToDeriveAbi`获取abi的类型并设置到PackageSetting中，另外就是要解析apk中的native so库，并获取对应so库的路径，这里有个`SCAN_NEW_INSTALL`flag，这个是给安装用的，开机scan是不会有此问题
+5. 设置安装的时间戳，主要是第一次安装和当前安装，目前不知道这个属性的用处
+6. 创建`ScanResult`并返回
+
+### reconcilePackagesLocked()
+
+先说一下几个参数:
+
+1. `ReconcileRequest`，放置需要的参数，allPackages->mPackages, scannedPackages->scanPackageOnlyLI()返回的ScanResult，sharedLibrarySource->mSharedLibraries解析之后才会进行push
+2. `KeySetManagerService`签名管理服务
+
+`reconcilePackagesLocked()`也会被安装应用的流程调用，所以`ReconcileRequest`的参数有些是为了给它们用的
+
+
+
+
 
