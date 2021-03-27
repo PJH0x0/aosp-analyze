@@ -18,6 +18,7 @@
 4. oem分区
 5. vendor分区
 6. system_ext分区
+7. data分区，最后扫描
 
 不过这些分区都执行不是特别严格，没涉及到gms测试的基本都不怎么管，那么apk是存在什么地方呢？例如：Settings就放在`/system_ext/priv-app/Settings/Settings.apk`，其他分区都是类似的，下面分析应用扫描过程还会说到。这里解释一下，为什么要分priv-app和app两个目录进行扫描? priv-app意思是这个目录里面都是privileged应用，可以获取privilege权限，权限的定义`frameworks/base/core/res/AndroidManifest.xml`中找到
 
@@ -154,7 +155,25 @@ scanDirLI的逻辑比较简单，
 1. `ReconcileRequest`，放置需要的参数，allPackages->mPackages, scannedPackages->scanPackageOnlyLI()返回的ScanResult，sharedLibrarySource->mSharedLibraries解析之后才会进行push
 2. `KeySetManagerService`签名管理服务
 
-`reconcilePackagesLocked()`也会被安装应用的流程调用，所以`ReconcileRequest`的参数有些是为了给它们用的
+`reconcilePackagesLocked()`也会被安装应用的流程调用，所以`ReconcileRequest`的参数有些是为了给它们用的，这个方法的主要功能就是为了校验签名
+
+1. 首先检查签名是否需要更新`ksms.shouldCheckUpgradeKeySetLocked(signatureCheckPs, scanFlags)`，这个不太能理解，签名是可以更新的？
+2. 调用`verifySignatures()`进行校验签名
+3. 最后生成`ReconciledPackage`并返回
+
+### commitReconciledScanResultLocked()
+
+这里面也是安装应用和扫描应用同时都会调用的方法，先只看扫描的情况
+
+1. 处理PackageSetting，这部分逻辑是和安装应用是混在一起的，主要包括
+    1. SharedUserSetting, 这个一般只有覆盖安装的时候如果sharedUserId变了，要重新赋值
+    2. 重命名包名的逻辑，安装重命名包名的时候会更新packages.xml文件
+2. 将PackageSetting写入package-restrictions.xml，里面主要存储的是disabled和enabled四大组件
+3. 最后调用`commitPackageSettings()`进行最后一步处理
+
+### commitPackageSettings()
+
+这个
 
 
 
