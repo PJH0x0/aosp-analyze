@@ -1,0 +1,40 @@
+@startuml
+interface LifecycleObserver
+interface LifecycleOwner {
+    Lifecycle getLifecycle()
+}
+enum EVENT {
+    ON_CREATE
+    ON_START
+    ON_RESUME
+    ON_PAUSE
+    ON_STOP
+    ON_DESTROY
+    ON_ANY
+}
+enum State {
+    DESTROYED
+    INITIALIZED
+    CREATED
+    STARTED
+    RESUMED
+}
+abstract class Lifecycle {
+    {abstract} void addObserver()
+    {abstract} void removeObserver()
+    {abstract} void State getCurrentState()
+}
+class LifecycleRegistry {
+    FastSafeIterableMap<LifecycleObserver, ObserverWithState> mObserverMap
+    State mState
+    WeakReference<LifecycleOwner> mLifecycleOwner
+    boolean mHandlingEvent
+    ArrayList<State> mParentStates
+}
+
+Lifecycle<|--LifecycleRegistry
+LifecycleRegistryo--LifecycleOwner
+LifecycleRegistry-->EVENT
+LifecycleRegistry-->State
+
+@enduml
