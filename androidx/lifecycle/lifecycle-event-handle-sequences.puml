@@ -1,0 +1,11 @@
+@startuml
+participant ReportFragment as a
+participant LifecycleRegistry as b
+
+a->b : handleLifecycleEvent()
+activate b
+b->b : getStateAfter()
+b->b : moveToState()
+b->b : sync()
+return
+@enduml

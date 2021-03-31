@@ -32,9 +32,9 @@ class LifecycleRegistry {
     ArrayList<State> mParentStates
 }
 
-Lifecycle<|--LifecycleRegistry
-LifecycleRegistryo--LifecycleOwner
-LifecycleRegistry-->EVENT
-LifecycleRegistry-->State
+Lifecycle <|-- LifecycleRegistry
+LifecycleRegistry o-- LifecycleOwner
+LifecycleRegistry --> EVENT
+LifecycleRegistry --> State
 
 @enduml

@@ -1,0 +1,20 @@
+@startuml
+participant actor as c
+participant LifecycleRegistry as a
+participant ObserverWithState as b
+c -> a : addObserver(observer)
+activate a
+a -> b : <init>()
+activate b
+a -> a : calculateTargetState(observer)
+activate a
+return State
+loop 
+    a -> b : dispatchEvent(lifecycleOwner, event)
+end
+alt !isReentrance
+    a -> a : sync()
+end
+deactivate b
+deactivate a
+@enduml

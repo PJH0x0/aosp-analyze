@@ -3,7 +3,10 @@ interface LifecycleObserver
 interface LifecycleOwner {
     Lifecycle getLifecycle()
 }
-enum EVENT {
+interface LifecycleEventObserver {
+    void onStateChanged()
+}
+enum Event {
     ON_CREATE
     ON_START
     ON_RESUME
@@ -31,16 +34,36 @@ class LifecycleRegistry {
     boolean mHandlingEvent
     ArrayList<State> mParentStates
 }
+class ObserverWithState {
+    State mState
+    LifecycleEventObserver mLifecycleObserver
+}
+class ReflectiveGenericLifecycleObserver {
+    Object mWrapped
+    CallbackInfo mInfo
+    onStateChanged()
+}
 
 class ComponentActivity
+class ReportFragment
+class MyLifecycleObserver
 
 Lifecycle <|-- LifecycleRegistry
 LifecycleRegistry o-- LifecycleOwner
+LifecycleObserver <|-- LifecycleEventObserver
+ReflectiveGenericLifecycleObserver <|.. LifecycleEventObserver
+ObserverWithState o-- State
+ObserverWithState o-- LifecycleEventObserver
 
-State <-- LifecycleRegistry
- EVENT <-- LifecycleRegistry
+Lifecycle +-- State
+Lifecycle +-- Event
+LifecycleRegistry o-- State 
+Event <-- LifecycleRegistry
 
 LifecycleOwner <|.. ComponentActivity
+ComponentActivity o-- ReportFragment
 ComponentActivity o-- LifecycleRegistry
+LifecycleObserver <|.. MyLifecycleObserver
+LifecycleRegistry "1" o-- "n" LifecycleObserver
 
 @enduml
