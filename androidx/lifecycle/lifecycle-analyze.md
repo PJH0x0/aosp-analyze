@@ -8,7 +8,7 @@
 
 ## Lifecycle基本使用
 
-Lifecycle作为Jetpack组件和MVVM的基石，其基本原理却非常简单，就是一个观察者模式的应用，使用起来也很简单
+Lifecycle作为Jetpack组件和MVVM的基石，其基本原理却非常简单，就是一个观察者模式的特殊应用，使用起来也很简单
 
 1. 导入Jetpack组件`implementation 'androidx.appcompat:appcompat:1.2.0'`
 

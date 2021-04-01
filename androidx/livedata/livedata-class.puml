@@ -1,0 +1,47 @@
+@startuml
+abstract class LiveData <T>{
+    SafeIterableMap<Observer<? super T>, ObserverWrapper> mObservers
+    int mActiveCount
+    int mVersion
+    boolean mDispatchingValue
+    boolean mDispatchInvalidated
+
+    void considerNotify(ObserverWrapper observer)
+    void dispatchingValue(ObserverWrapper initiator)
+    void observe(LifecycleOwner owner, Observer<? super T> observer)
+    void removeObserver(final Observer<? super T> observer)
+    void postValue(T value)
+    void setValue(T value)
+}
+class MutableLiveData
+interface LifecycleObserver
+interface LifecycleEventObserver {
+    void onStateChanged(LifecycleOwner source, Lifecycle.Event event)
+}
+interface GenericLifecycleObserver
+interface Observer <T>{
+    void onChanged(T t)
+}
+abstract class ObserverWrapper {
+    boolean isAttachedTo(LifecycleOwner owner)
+    void detachObserver()
+    void activeStateChanged(boolean newActive)
+    {abstract} boolean shouldBeActive()
+    final Observer<? super T> mObserver
+    boolean mActive
+    int mLastVersion
+}
+class LifecycleBoundObserver {
+    final LifecycleOwner mOwner
+}
+
+
+LiveData <|-- MutableLiveData
+LifecycleObserver <|-- LifecycleEventObserver
+LifecycleEventObserver <|-- GenericLifecycleObserver
+ObserverWrapper <|-- LifecycleBoundObserver 
+GenericLifecycleObserver <|.. LifecycleBoundObserver
+
+LiveData "1" o-- "n" LifecycleBoundObserver
+LifecycleBoundObserver "1" o-- "1" Observer
+@enduml
