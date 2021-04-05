@@ -1,0 +1,139 @@
+@startuml
+class Retrofit {
+    Map<Method, ServiceMethod<?>> serviceMethodCache = new ConcurrentHashMap<>()
+    okhttp3.Call.Factory callFactory
+    HttpUrl baseUrl
+    List<Converter.Factory> converterFactories
+    List<CallAdapter.Factory> callAdapterFactories
+    Executor callbackExecutor
+    boolean validateEagerly
+
+    <T> T create(final Class<T> service)
+}
+
+abstract class ServiceMethod<T> {
+    {static} <T> ServiceMethod<T> parseAnnotations()
+    abstract T invoke()
+}
+abstract class HttpServiceMethod<ResponseT, ReturnT> {
+    {static} <ResponseT, ReturnT> HttpServiceMethod<ResponseT, ReturnT> parseAnnotations()
+    {static} <ResponseT, ReturnT> CallAdapter<ResponseT, ReturnT> createCallAdapter()
+
+    RequestFactory requestFactory
+    okhttp3.Call.Factory callFactory
+    Converter<ResponseBody, ResponseT> responseConverter
+    
+    ReturnT invoke(Object[] args)
+}
+class HttpServiceMethod.CallAdapted<ResponseT, ReturnT> {
+    ReturnT adapt(Call<ResponseT> call, Object[] args)
+}
+ServiceMethod <|-- HttpServiceMethod
+HttpServiceMethod <|-- HttpServiceMethod.CallAdapted
+Retrofit "1" o-- "n" ServiceMethod
+Retrofit "1" o-- "n" CallAdapter.Factory
+
+interface Call<T> {
+    Response<T> execute()
+    void enqueue(Callback<T> callback)
+    boolean isExecuted()
+    void cancel()
+    boolean isCanceled()
+    Call<T> clone()
+    Request request()
+    Timeout timeout()
+}
+class Response<T> {
+    okhttp3.Response rawResponse
+    T body
+    ResponseBody errorBody
+}
+class OkHttpCall<T> {
+    RequestFactory requestFactory
+    Object[] args
+    okhttp3.Call.Factory callFactory
+    Converter<ResponseBody, T> responseConverter
+    volatile boolean canceled
+    okhttp3.Call rawCall
+    Throwable creationFailure
+    private boolean executed
+}
+class RequestFactory {
+    Method method;
+    HttpUrl baseUrl;
+    String httpMethod;
+    String relativeUrl;
+    Headers headers;
+    MediaType contentType;
+    boolean hasBody;
+    boolean isFormEncoded;
+    boolean isMultipart;
+    ParameterHandler<?>[] parameterHandlers;
+    boolean isKotlinSuspendFunction;
+
+    {static} RequestFactory parseAnnotations(Retrofit retrofit, Method method)
+    okhttp3.Request create(Object[] args)
+}
+Call --> Response
+OkHttpCall o-- RequestFactory
+RequestFactory --> okhttp3.Request
+OkHttpCall o-- okhttp3.Call
+Response o-- okhttp3.Response
+Call <|.. OkHttpCall
+HttpServiceMethod o-- RequestFactory
+interface okhttp3.Call {
+    Request request()
+    Response execute()
+    void enqueue(Callback responseCallback)
+    void cancel()
+    boolean isExecuted()
+    boolean isCanceled()
+    Timeout timeout()
+    Call clone()
+}
+interface okhttp3.Call.Factory {
+    Call newCall(Request request)
+}
+class okhttp3.OkHttpClient {
+
+}
+class okhttp3.Request {
+    HttpUrl url;
+    String method;
+    Headers headers;
+    RequestBody body;
+    Map<Class<?>, Object> tags;
+    volatile CacheControl cacheControl
+}
+class okhttp3.Response {
+    Request request;
+    Protocol protocol;
+    int code;
+    String message;
+    Handshake handshake;
+    Headers headers;
+    ResponseBody body;
+    Response networkResponse;
+    Response cacheResponse;
+    Response priorResponse;
+    long sentRequestAtMillis;
+    long receivedResponseAtMillis;
+    Exchange exchange;
+}
+okhttp3.Call.Factory --> okhttp3.Call
+okhttp3.Call.Factory <|.. okhttp3.OkHttpClient
+okhttp3.Call --> okhttp3.Request
+okhttp3.Response o-- okhttp3.Request
+interface CallAdapter<R, T> {
+    Type responseType()
+    T adapt(Call<R> call)
+}
+abstract class CallAdapter.Factory {
+    abstract CallAdapter<?, ?> get()
+}
+class DefaultCallAdapterFactory {
+    CallAdapter<?, ?> get()
+}
+CallAdapter.Factory --> CallAdapter
+CallAdapter.Factory <|.. DefaultCallAdapterFactory
+@enduml

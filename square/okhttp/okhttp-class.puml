@@ -1,0 +1,274 @@
+@startuml
+interface Call {
+    Request request()
+    Response execute()
+    void enqueue(Callback responseCallback)
+    void cancel()
+    boolean isExecuted()
+    boolean isCanceled()
+    Timeout timeout()
+}
+interface Call.Factory {
+    Call newCall(Request request)
+}
+class OkHttpClient {
+    Dispatcher dispatcher;
+    Proxy proxy;
+    List<Protocol> protocols;
+    List<ConnectionSpec> connectionSpecs;
+    List<Interceptor> interceptors;
+    List<Interceptor> networkInterceptors;
+    EventListener.Factory eventListenerFactory;
+    ProxySelector proxySelector;
+    CookieJar cookieJar;
+    Cache cache;
+    InternalCache internalCache;
+    SocketFactory socketFactory;
+    SSLSocketFactory sslSocketFactory;
+    CertificateChainCleaner certificateChainCleaner;
+    HostnameVerifier hostnameVerifier;
+    CertificatePinner certificatePinner;
+    Authenticator proxyAuthenticator;
+    Authenticator authenticator;
+    ConnectionPool connectionPool;
+    Dns dns;
+    boolean followSslRedirects;
+    boolean followRedirects;
+    boolean retryOnConnectionFailure;
+    int callTimeout;
+    int connectTimeout;
+    int readTimeout;
+    int writeTimeout;
+    int pingInterval;
+    Call newCall(Request request)
+}
+class RealCall {
+    OkHttpClient client
+    Transmitter transmitter
+    Request originalRequest
+    boolean forWebSocket
+    boolean executed
+}
+Call.Factory <|.. OkHttpClient
+Call <|.. RealCall
+class Request {
+    HttpUrl url
+    String method
+    Headers headers
+    RequestBody body
+    Map<Class<?>, Object> tags
+    CacheControl cacheControl
+}
+class Response {
+    Request request
+    Protocol protocol
+    int code
+    String message
+    Handshake handshake
+    Headers headers
+    ResponseBody body
+    Response networkResponse
+    Response cacheResponse
+    Response priorResponse
+    long sentRequestAtMillis
+    long receivedResponseAtMillis
+    Exchange exchange
+
+    CacheControl cacheControl
+}
+OkHttpClient --> Request
+RealCall o-- Transmitter
+class Dispatcher {
+    private int maxRequests = 64;
+    int maxRequestsPerHost = 5;
+    Runnable idleCallback;
+    ExecutorService executorService;
+    Deque<AsyncCall> readyAsyncCalls = new ArrayDeque<>();
+    Deque<AsyncCall> runningAsyncCalls = new ArrayDeque<>();
+    Deque<RealCall> runningSyncCalls = new ArrayDeque<>();
+}
+OkHttpClient o-- Dispatcher
+interface Interceptor {
+    Response intercept(Chain chain)
+}
+interface Interceptor.Chain {
+    Request request()
+    Response proceed(Request request)
+    Connection connection()
+    Call call()
+    int connectTimeoutMillis()
+    Chain withConnectTimeout(int timeout, TimeUnit unit)
+    int readTimeoutMillis()
+    Chain withReadTimeout(int timeout, TimeUnit unit)
+    int writeTimeoutMillis()
+    Chain withWriteTimeout(int timeout, TimeUnit unit)
+}
+class RealInterceptorChain {
+    List<Interceptor> interceptors;
+    Transmitter transmitter;
+    Exchange exchange;
+    int index;
+    Request request;
+    Call call;
+    int connectTimeout;
+    int readTimeout;
+    int writeTimeout;
+    int calls;
+}
+class RetryAndFollowUpInterceptor {
+    OkHttpClient client
+}
+class BridgeInterceptor {
+    CookieJar cookieJar
+}
+class CacheInterceptor {
+    InternalCache cache
+}
+class ConnectInterceptor {
+    OkHttpClient client
+}
+class CallServerInterceptor {
+    boolean forWebSocket
+}
+Interceptor.Chain <|.. RealInterceptorChain
+Interceptor <|.. RetryAndFollowUpInterceptor
+Interceptor <|.. BridgeInterceptor
+Interceptor <|.. CacheInterceptor
+Interceptor <|.. ConnectInterceptor
+Interceptor <|.. CallServerInterceptor
+class Transmitter {
+    private final OkHttpClient client
+    RealConnectionPool connectionPool
+    Call call
+    EventListener eventListener
+    AsyncTimeout timeout
+    Object callStackTrace
+    Request request;
+    ExchangeFinder exchangeFinder
+    RealConnection connection
+    Exchange exchange
+    boolean exchangeRequestDone
+    boolean exchangeResponseDone
+    boolean canceled
+    boolean timeoutEarlyExit
+    boolean noMoreExchanges
+    Exchange newExchange()
+}
+class ExchangeFinder {
+    Transmitter transmitter
+    Address address
+    RealConnectionPool connectionPool
+    Call call
+    EventListener eventListener
+    RouteSelector.Selection routeSelection
+    RouteSelector routeSelector
+    RealConnection connectingConnection
+    boolean hasStreamFailure
+    Route nextRouteToTry
+}
+class Exchange {
+    Transmitter transmitter
+    Call call
+    EventListener eventListener
+    ExchangeFinder finder
+    ExchangeCodec codec
+    boolean duplex
+}
+Transmitter o-- ExchangeFinder
+Transmitter o-- RealConnection
+ExChange o-- ExchangeFinder
+ExChange o-- ExchangeCodec
+ExChange o-- Call
+ExChangeFinder o-- RealConnectionPool
+Transmitter --> ExChange
+class RealConnectionPool {
+    int maxIdleConnections
+    Deque<RealConnection> connections
+    RouteDatabase routeDatabase
+    boolean cleanupRunning
+}
+interface Connection {
+    Route route()
+    Socket socket()
+    Handshake handshake()
+    Protocol protocol()
+
+}
+class RealConnection {
+    RealConnectionPool connectionPool;
+    Route route;
+    Socket rawSocket
+    Socket socket;
+    Handshake handshake;
+    Protocol protocol;
+    Http2Connection http2Connection;
+    BufferedSource source;
+    BufferedSink sink;
+    boolean noNewExchanges;
+    int routeFailureCount;
+    int successCount;
+    int refusedStreamCount;
+    int allocationLimit = 1;
+    final List<Reference<Transmitter>> transmitters
+    long idleAtNanos
+}
+Connection <|.. RealConnection
+RealConnectionPool "1" o-- "n" RealConnection
+interface ExchangeCodec {
+    RealConnection connection()
+    Sink createRequestBody(Request request, long contentLength)
+    void writeRequestHeaders(Request request)
+    void flushRequest()
+    void finishRequest()
+    Response.Builder readResponseHeaders(boolean expectContinue)
+    long reportedContentLength(Response response)
+    Source openResponseBodySource(Response response)
+    Headers trailers()
+    void cancel()
+}
+class Http2ExchangeCodec {
+    Interceptor.Chain chain;
+    RealConnection realConnection;
+    Http2Connection connection;
+    Http2Stream stream;
+    Protocol protocol;
+    boolean canceled;
+}
+class Http1ExchangeCodec {
+    OkHttpClient client
+    RealConnection realConnection
+    BufferedSource source
+    BufferedSink sink
+    int state
+    long headerLimit
+}
+interface InternalCache {
+    Response get(Request request)
+    CacheRequest put(Response response)
+    remove(Request request)
+    update(Response cached, Response network)
+    trackConditionalCacheHit()
+    trackResponse(CacheStrategy cacheStrategy)
+}
+class CacheStrategy {
+    Request networkRequest
+    Response cacheResponse
+}
+class CacheStrategy.Factory {
+    long nowMillis
+    Request request
+    Response cacheResponse
+    Date servedDate
+    Date lastModified
+    String lastModifiedString
+    Date expires
+    long sentRequestMillis
+    long receivedResponseMillis
+    String etag
+    int ageSeconds
+    CacheStrategy getCandidate()
+    CacheStrategy get()
+}
+CacheInterceptor o-- InternalCache
+CacheStrategy.Factory --> CacheStrategy
+@enduml
