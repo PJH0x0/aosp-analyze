@@ -49,8 +49,11 @@ class RealCall {
     boolean forWebSocket
     boolean executed
 }
+RealCall o-- Request
+Call --> Response
 Call.Factory <|.. OkHttpClient
 Call <|.. RealCall
+OkHttpClient -> Call
 class Request {
     HttpUrl url
     String method
@@ -59,6 +62,7 @@ class Request {
     Map<Class<?>, Object> tags
     CacheControl cacheControl
 }
+OkHttpClient -> Request
 class Response {
     Request request
     Protocol protocol
@@ -76,7 +80,6 @@ class Response {
 
     CacheControl cacheControl
 }
-OkHttpClient --> Request
 RealCall o-- Transmitter
 class Dispatcher {
     private int maxRequests = 64;
@@ -115,6 +118,7 @@ class RealInterceptorChain {
     int writeTimeout;
     int calls;
 }
+RealInterceptorChain "1" o-- "n" Interceptor
 class RetryAndFollowUpInterceptor {
     OkHttpClient client
 }
@@ -136,6 +140,7 @@ Interceptor <|.. BridgeInterceptor
 Interceptor <|.. CacheInterceptor
 Interceptor <|.. ConnectInterceptor
 Interceptor <|.. CallServerInterceptor
+CacheInterceptor --> CacheStrategy
 class Transmitter {
     private final OkHttpClient client
     RealConnectionPool connectionPool
@@ -176,11 +181,11 @@ class Exchange {
 }
 Transmitter o-- ExchangeFinder
 Transmitter o-- RealConnection
-ExChange o-- ExchangeFinder
-ExChange o-- ExchangeCodec
-ExChange o-- Call
-ExChangeFinder o-- RealConnectionPool
-Transmitter --> ExChange
+Exchange o-- ExchangeFinder
+Exchange o-- ExchangeCodec
+Exchange o-- Call
+ExchangeFinder o-- RealConnectionPool
+Transmitter --> Exchange
 class RealConnectionPool {
     int maxIdleConnections
     Deque<RealConnection> connections
@@ -242,6 +247,8 @@ class Http1ExchangeCodec {
     int state
     long headerLimit
 }
+ExchangeCodec <|.. Http1ExchangeCodec
+ExchangeCodec <|.. Http2ExchangeCodec
 interface InternalCache {
     Response get(Request request)
     CacheRequest put(Response response)

@@ -1,0 +1,48 @@
+@startuml
+abstract class ViewModel {
+    boolean mCleared
+    void onCleared()
+}
+class AndroidViewModel {
+    Application mApplication
+    <T extends Application> T getApplication()
+}
+class ViewModelStore {
+    HashMap<String, ViewModel> mMap
+    void put(String key, ViewModel viewModel)
+}
+interface ViewModelStoreOwner {
+    ViewModelStore getViewModelStore()
+}
+class ComponentActivity {
+    ViewModelStore mViewModelStore
+    Object onRetainNonConfigurationInstance()
+}
+interface Factory {
+    <T extends ViewModel> T create(@NonNull Class<T> modelClass)
+}
+class NewInstanceFactory {
+    <T extends ViewModel> T create(Class<T> modelClass)
+}
+class AndroidViewModelFactory {
+    {static} AndroidViewModelFactory sInstance
+    Application mApplication
+    {static} AndroidViewModelFactory getInstance(@NonNull Application application)
+    <T extends ViewModel> T create(Class<T> modelClass)
+}
+class ViewModelProvider {
+    Factory mFactory
+    ViewModelStore mViewModelStore
+    <T extends ViewModel> T get(@NonNull Class<T> modelClass)
+}
+
+ViewModel <|-- AndroidViewModel
+ViewModelStore "1" o-- "n" ViewModel
+ViewModelStoreOwner <|.. ComponentActivity
+ComponentActivity "1" o-- "1" ViewModelStore
+Factory <|.. NewInstanceFactory
+NewInstanceFactory <|-- AndroidViewModelFactory
+ViewModelProvider o-- Factory
+ViewModelProvider o-- ViewModelStore
+
+@enduml

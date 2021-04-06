@@ -20,14 +20,14 @@ LiveData的类图比较简单，应该无需多做解释
 1. 判断是否是主线程，这点和Lifecycle就不一样，直接指定了只能在主线程中添加Observer
 2. 判断是否已DESTROYED，在onDestroyed()调用之后添加就没有用了
 3. 创建Observer的wrapper对象,类型为LifecycleBoundObserver，详细看UML类图，它不仅是ObserverWrapper，而且实现了LifecycleEventObserver
-4. 将wrapper对象push到mObservers中
+4. 将wrapper对象push到mObservers中，也就是说LiveData和Observer是一对多的关系
 5. 将LifecycleBoundObserver对象加入到Lifecycle中，这一步会回调对应的生命周期方法
 
 ## LiveData实现数据更新
 
 LiveData的数据更新分为两种
 
-1. 生命周期触发数据更新，这是为了保持数据和之前的一致
+1. 生命周期触发数据更新，这是为了保持Observer的数据和LiveData中的一致
 2. 通过setValue()/postValue()主动更新数据
 
 ### 生命周期触发数据更新
@@ -61,8 +61,8 @@ LiveData的数据更新分为两种
 
 #### mPostValueRunnable.run()
 
-1. 先给newValue复制，这里添加synchronized原因见问题1的答案
-2. 将mPendingData重置
+1. 先给newValue赋值引用，这里添加synchronized原因见问题1的答案
+2. 将mPendingData重置引用
 3. 调用setValue()继续更新数据
 
 #### LiveData.setValue()
@@ -74,7 +74,7 @@ LiveData的数据更新分为两种
 ### LiveData.dispatchingValue()
 
 1. 如果正在分发，则先返回，并且将mDispatchInvalidated设置为true，这部分逻辑后面进行解释
-2. 由于`ObserverWrapper.activeStateChanged()`传入了ObserverWrapper对象，所以会直接调用considerNotify()方法，这里注意initiator要重置为了null，原因后面再说
+2. 如果是`ObserverWrapper.activeStateChanged()`调用则会传入ObserverWrapper对象，直接调用considerNotify()方法，这里注意initiator要重置为了null，原因后面再说
 3. 如果是`setValue()`调用，则对每一个Observer都更新其数据，调用`considerNotify()`
 
 #### LiveData.considerNotify()
@@ -97,9 +97,7 @@ LiveData的数据更新分为两种
 
 这两个变量最主要的作用就是在调用`observer.onChange()`中又setValue()了，于是就出现数据更新了，那么如果此时没有这两个变量以及循环，我们来考虑一下状况：
 
-​		setValue()调用，在某个`observer.onChange()`中又调用了setValue()，假设为observer_1，那么就会出现observer_1之后的那些observer会出现连续调用两次considerNotify()并且两次都是第二次setValue()的值，这里需要想象一下链表的循环，这样虽然数据不会重复调用，因为有mVersion的存在，但是效率会降低
-
-上面只是举了一个第二次调用，如果出现第三次，第四次。所以dispatchingValue()设计了这套机制
+​		setValue()调用，在某个`observer.onChange()`中又调用了setValue()，假设为observer_1，那么就会出现observer_1之后的那些observer会出现连续调用两次considerNotify()并且两次都是第二次setValue()的值，这里需要想象一下链表的循环，这样虽然onChange()不会重复调用，因为有mVersion的存在，但是效率会降低，considerNotify()会被调用多次，这里只是举了两次的嵌套，可能还有多次嵌套
 
 ```java
 void dispatchingValue(@Nullable ObserverWrapper initiator) {
@@ -133,11 +131,11 @@ void dispatchingValue(@Nullable ObserverWrapper initiator) {
 2. 此时回到了遍历的循环中的considerNotify()下一行，判断mDispatchInvalidated为true，跳出遍历循环
 3. while()的判断mDispatchInvalidated也是true，这是重新进行遍历更新数据，这样observer_1之后的链表就只会更新一次，observer_1之前的当然会出现两次更新，但是他们的数据不同，可以理解
 
-当生命周期间出现嵌套setValue()的时候，`initiator = null`就好理解了，假如出现了更新，所以先将其转为setValue()的那种更新，这种先更新了一遍，那生命周期还是会驱动后面的observer更新啊，怎么办呢？mVersion就起到作用了
+当生命周期间出现嵌套setValue()的时候，`initiator = null`就好理解了，假如出现了更新，直接将其转为setValue()类型的更新，
 
 ### mVersion的作用
 
-mVersion一个是上面所说的，另外一个则是在刚刚添加observer的时候，想象一下：假如在onResume里面添加一个observer，生命周期驱动数据更新的时候如果没有mVersion的话，那么就会回调一个空指针
+mVersion一个是上面所说的嵌套setValue()的时候防止onChange()多次调用，另外一个则是在刚刚添加observer的时候，想象一下：假如在onResume里面添加一个observer，生命周期驱动数据更新的时候如果没有mVersion的话，那么就会回调一个空指针
 
 ### 为什么在considerNotify()中要二次检查shouldBeActive()
 
