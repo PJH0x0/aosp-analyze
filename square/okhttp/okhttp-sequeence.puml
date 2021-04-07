@@ -1,0 +1,50 @@
+@startuml
+participant actor as 0
+participant OkHttpClient.Builder as b
+participant OkHttpClient as a
+participant RealCall as c
+participant Transmitter as j
+participant RealInterceptorChain as d
+participant RetryAndFollowUpInterceptor as e
+participant BridgeInterceptor as f
+participant CacheInterceptor as g
+participant ConnectInterceptor as h
+participant CallServerInterceptor as i
+
+0 -> b : new OkHttpClient.Builder()
+activate b
+b -> b : build()
+return a
+0 -> a : newCall(request)
+a -> c : newRealCall()
+c -> c : RealCall.<init>()
+c -> j : Transmitter.<init>()
+c -> 0 : RealCall
+0 -> c : execute()
+activate c
+c -> c : getResponseWithInterceptorChain()
+c -> e : RetryAndFollowUpInterceptor.<init>()
+c -> f : BridgeInterceptor.<init>()
+c -> g : CacheInterceptor.<init>()
+c -> h : ConnectInterceptor.<init>()
+c -> i : CallServerInterceptor.<init>()
+c -> d : RealInterceptorChain.<init>()
+c -> d : proceed()
+activate d
+d -> e : intercept()
+activate e
+loop 
+    e -> j : prepareToConnect()
+    activate j
+    e -> f : intercept()
+    activate f
+end
+f -> g : intercept()
+activate g
+g -> h : intercept()
+activate h
+h -> j : newExchange()
+h -> i : intercept()
+activate i
+
+@enduml
