@@ -1,0 +1,47 @@
+@startuml
+participant ConnectInterceptor as a
+participant Transmitter as b
+participant ExchangeFinder as c
+participant RouteSelector as z
+participant Dns as y
+participant InetAddress as x
+participant RealConnectionPool as d
+participant RealConnection as e
+participant Exchange as f
+
+a -> b : newExchange()
+activate b
+b -> c : find()
+activate c
+c -> c : findHealthyConnection()
+activate c
+c -> c : findConnection()
+activate c
+c -> z ++ : next()
+z -> z ++ : nextProxy()
+z -> z : resetNextInetSocketAddress()
+z -> y : lookup()
+y -> x : getAllByName()
+x --> y : InetAddress[]
+y --> z : List<InetAddress>
+return Proxy
+return Selection
+c -> d ++ : transmitterAcquirePooledConnection()
+alt exist RealConnection
+    return RealConnection
+else
+    c -> e ++ : new instance
+end
+c -> e : connect()
+e -> e : connectSocket()
+e -> e : establishProtocol()
+e -> e : connectTls()
+c --> c -- : RealConnection
+c --> c -- : RealConnection
+c -> e : newCodec()
+e --> c -- : ExchangeCodec
+c --> b -- : ExchangeCodec
+b -> f : new instance
+return Exchange
+
+@enduml

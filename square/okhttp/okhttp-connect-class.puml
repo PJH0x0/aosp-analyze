@@ -1,0 +1,157 @@
+@startuml
+class Transmitter {
+    private final OkHttpClient client
+    RealConnectionPool connectionPool
+    Call call
+    EventListener eventListener
+    AsyncTimeout timeout
+    Object callStackTrace
+    Request request;
+    ExchangeFinder exchangeFinder
+    RealConnection connection
+    Exchange exchange
+    boolean exchangeRequestDone
+    boolean exchangeResponseDone
+    boolean canceled
+    boolean timeoutEarlyExit
+    boolean noMoreExchanges
+    Exchange newExchange()
+}
+class ExchangeFinder {
+    Transmitter transmitter
+    Address address
+    RealConnectionPool connectionPool
+    Call call
+    EventListener eventListener
+    RouteSelector.Selection routeSelection
+    RouteSelector routeSelector
+    RealConnection connectingConnection
+    boolean hasStreamFailure
+    Route nextRouteToTry
+}
+class Exchange {
+    Transmitter transmitter
+    Call call
+    EventListener eventListener
+    ExchangeFinder finder
+    ExchangeCodec codec
+    boolean duplex
+}
+Exchange o-- ExchangeFinder
+Exchange o-- ExchangeCodec
+ExchangeFinder o-- RealConnectionPool
+Transmitter --> Exchange
+ExchangeFinder o-- RouteSelector
+ExchangeFinder o-- RouteSelector.Selection
+class RealConnectionPool {
+    int maxIdleConnections
+    Deque<RealConnection> connections
+    RouteDatabase routeDatabase
+    boolean cleanupRunning
+}
+interface Connection {
+    Route route()
+    Socket socket()
+    Handshake handshake()
+    Protocol protocol()
+
+}
+class RealConnection {
+    RealConnectionPool connectionPool;
+    Route route;
+    Socket rawSocket
+    Socket socket;
+    Handshake handshake;
+    Protocol protocol;
+    Http2Connection http2Connection;
+    BufferedSource source;
+    BufferedSink sink;
+    boolean noNewExchanges;
+    int routeFailureCount;
+    int successCount;
+    int refusedStreamCount;
+    int allocationLimit = 1;
+    final List<Reference<Transmitter>> transmitters
+    long idleAtNanos
+}
+Connection <|.. RealConnection
+RealConnectionPool "1" o-- "n" RealConnection
+interface ExchangeCodec {
+    RealConnection connection()
+    Sink createRequestBody(Request request, long contentLength)
+    void writeRequestHeaders(Request request)
+    void flushRequest()
+    void finishRequest()
+    Response.Builder readResponseHeaders(boolean expectContinue)
+    long reportedContentLength(Response response)
+    Source openResponseBodySource(Response response)
+    Headers trailers()
+    void cancel()
+}
+class Http2ExchangeCodec {
+    Interceptor.Chain chain;
+    RealConnection realConnection;
+    Http2Connection connection;
+    Http2Stream stream;
+    Protocol protocol;
+    boolean canceled;
+}
+class Http1ExchangeCodec {
+    OkHttpClient client
+    RealConnection realConnection
+    BufferedSource source
+    BufferedSink sink
+    int state
+    long headerLimit
+}
+
+ExchangeCodec <|.. Http1ExchangeCodec
+ExchangeCodec <|.. Http2ExchangeCodec
+
+class Address {
+    HttpUrl url;
+    Dns dns;
+    SocketFactory socketFactory
+    Authenticator proxyAuthenticator
+    List<Protocol> protocols
+    List<ConnectionSpec> connectionSpecs
+    ProxySelector proxySelector
+    Proxy proxy
+    SSLSocketFactory sslSocketFactory
+    HostnameVerifier hostnameVerifier
+    CertificatePinner certificatePinner
+}
+class Route {
+    Address address
+    Proxy proxy
+    InetSocketAddress inetSocketAddress
+}
+
+class RouteSelector {
+    Address address;
+    RouteDatabase routeDatabase
+    Call call
+    EventListener eventListener
+    List<Proxy> proxies 
+    int nextProxyIndex
+    List<InetSocketAddress> inetSocketAddresses
+    List<Route> postponedRoutes
+}
+
+class RouteSelector.Selection {
+    List<Route> routes
+    int nextRouteIndex
+    boolean hasNext()
+    Route next()
+    List<Route> getAll()
+}
+
+RouteSelector o-- Address
+RouteSelector.Selection "1" o-- "n" Route
+
+package java.net {
+    class Proxy
+    class InetSocketAddress
+}
+
+@enduml

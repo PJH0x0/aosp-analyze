@@ -3,7 +3,6 @@ participant actor as 0
 participant OkHttpClient.Builder as b
 participant OkHttpClient as a
 participant RealCall as c
-participant Transmitter as j
 participant RealInterceptorChain as d
 participant RetryAndFollowUpInterceptor as e
 participant BridgeInterceptor as f
@@ -18,33 +17,40 @@ return a
 0 -> a : newCall(request)
 a -> c : newRealCall()
 c -> c : RealCall.<init>()
-c -> j : Transmitter.<init>()
+activate c
 c -> 0 : RealCall
 0 -> c : execute()
-activate c
 c -> c : getResponseWithInterceptorChain()
 c -> e : RetryAndFollowUpInterceptor.<init>()
-c -> f : BridgeInterceptor.<init>()
-c -> g : CacheInterceptor.<init>()
-c -> h : ConnectInterceptor.<init>()
-c -> i : CallServerInterceptor.<init>()
-c -> d : RealInterceptorChain.<init>()
-c -> d : proceed()
-activate d
-d -> e : intercept()
 activate e
-loop 
-    e -> j : prepareToConnect()
-    activate j
-    e -> f : intercept()
-    activate f
-end
-f -> g : intercept()
+c -> f : BridgeInterceptor.<init>()
+activate f
+c -> g : CacheInterceptor.<init>()
 activate g
-g -> h : intercept()
+c -> h : ConnectInterceptor.<init>()
 activate h
-h -> j : newExchange()
-h -> i : intercept()
+c -> i : CallServerInterceptor.<init>()
 activate i
+c -> d : RealInterceptorChain.<init>()
+activate d
+c -> d : proceed()
+d -> e : intercept()
+e -> f : intercept()
+f -> g : intercept()
+g -> h : intercept()
+h -> i : intercept()
+i --> h : Response
+deactivate i
+h --> g : Response
+deactivate h
+g --> f : Response
+deactivate g
+f --> e : Response
+deactivate f
+e --> d : Response
+deactivate e
+d --> c : Response
+deactivate d
+c --> 0 : Response
 
 @enduml
