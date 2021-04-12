@@ -18,7 +18,7 @@
 
 ### 流程图
 
-![](/Users/illusion/github/aosp-analyze/square/okhttp/okhttp-sequence.png)
+![](./okhttp-sequence.png)
 
 这个流程图只涉及到简单的过程，并未涉及到具体的细节，凸显出来的就是责任链模式，这种模式适合与分层比较明显，但是上下有依赖关系，这种模式可以在很多地方找到相似的例子，例如：对象的初始化(这里建议看C++的)，Input事件的传输和处理，五层网络协议，基本上都是由外而内传递并且由内而外处理的方式
 
@@ -151,7 +151,7 @@ try {
 
 下面先解释一下：
 
-1. Okhttp目前支持http1.1和http2，这是两个协议，http2要求服务器支持TLS1.2，如果url的scheme部分不是https字符串的话，则不支持http2，默认使用http1.1，如果要使用其他协议要进行指定，详细的请看Protocol.java。
+1. Okhttp目前支持http1.1和http2，这是两个协议，http2要求服务器支持TLS1.2，如果url的scheme部分不是https字符串的话，则不支持http2，默认使用http1.1，如果要使用其他协议要进行指定，详细的请看Protocol.java。另外如果支持TLS1.2，则通过TLS1.2判断是否服务器和客户端支持HTTP2
 2. 就是靠scheme中的字符串是http还是https，如果是https则会尝试和服务器进行TLS握手
 
 接下来看一下`intercept()`的流程
@@ -197,7 +197,7 @@ try {
 
 #### ExchangeFinder.findHealthyConnection()
 
-1. 建立一个无限循环，这里的无限循环是为了health而建立的，为什么不回出现死循环呢？
+1. 建立一个无限循环，这里的无限循环是为了health而建立的，为什么不会出现死循环呢？
 2. 调用`findConnection()`，查找或者新建一个RealConnection
 3. 如果是个新的RealConnection，则直接返回
 4. 判断是否是个HealthyConnection，Healthy定义就是socket是否已经关闭了，另外如果不是一个健康的Connection则会释放掉
@@ -205,6 +205,37 @@ try {
 说明一下为什么不会出现死循环，这是因为如果不是一个HealthConnection，会找到下一个Connection，如果所有的Connection都不是Healthy的话，则会新建一个Connection，这个Connection就必定会是Healthy的
 
 #### ExchangeFinder.findConnection()
+
+1. 尝试直接获取Transmitter.connection，失败的情况包括Transmitter.connection为null或者Transmitter.connection无法创建Exchange
+2. 尝试从RealConnectionPool获取匹配的情况Connection，匹配的条件主要是`isEligible()`：
+    1. 已经费配过Transmitter或者这个Connection无法创建Exchange，则不匹配
+    2. 是否是同一个Address，是则匹配上了
+3. 根据条件选择对应的Route，为创建新Connection做准备，这几个条件还没理解透
+4. 第二次尝试从RealConnectionPool获取匹配的情况Connection，这次匹配的条件在于DNS之后获取的Routes
+5. 如果还是未获取到则创建新的RealConnection
+6. 调用`RealConnection.connect()`方法，进行socket和TLS连接
+7. 第三次尝试从RealConnectionPool获取匹配的Connection，匹配的条件则是requireMultiplexed = true
+8. 如果还是没有获取到，则更新connectionPool
+
+第一次获取的是http1.1或者http2的Connection，第二次为了获取http2的Connection，第三次则不知道是怎么回事了
+
+#### RealConnection.connect()
+
+1. 检查Connection的合法性
+    1. 如果不支持https，则ConnectionSpec的类型必须包含CLEARTEXT(纯文本请求，例如：HTTP, FTP等)，默认包含
+    2. 根据平台判断是否支持CLEARTEXT类型请求，
+2. 判断是否存在HTTP代理，如果是则调用`connectTunnel()`连接，**隧道原理还未了解明白，先不做了解**
+3. 否则调用`connectSocket()`创建rawSocket并进行三次握手
+4. 调用`establishProtocol()`识别协议
+
+#### RealConnection.connectSocket()
+
+1. 如果是代理是HTTP类型或者没有代理，则从SocketFactory创建Socket，调用平台的`connectSocket()`，AndroidPlatform没有特殊处理，直接调用`socket.connect()`进行连接
+2. 创建Source和Sink，分别对应InputStream(获取HTTP响应)和OutputStream(用于发送请求)
+
+#### RealConnection.establishProtocol()
+
+
 
 
 
