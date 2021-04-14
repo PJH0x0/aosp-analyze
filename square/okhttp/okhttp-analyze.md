@@ -217,7 +217,7 @@ try {
 7. 第三次尝试从RealConnectionPool获取匹配的Connection，匹配的条件则是requireMultiplexed = true
 8. 如果还是没有获取到，则更新connectionPool
 
-第一次获取的是http1.1或者http2的Connection，第二次为了获取http2的Connection，第三次则不知道是怎么回事了
+第一次获取的是http1.1或者http2的Connection，第二次和第三次都是为了获取http2的复用的Connection
 
 #### RealConnection.connect()
 
@@ -234,6 +234,34 @@ try {
 2. 创建Source和Sink，分别对应InputStream(获取HTTP响应)和OutputStream(用于发送请求)
 
 #### RealConnection.establishProtocol()
+
+1. 检查SslSocketFactory是否为null,为null则说明不支持HTTP2，默认会将协议申明为HTTP1.1，当然如果指定了H2_PRIOR_KNOWLEDGE，还是可以用http2
+2. 调用connectTls()进行TLS握手
+3. 如果支持HTTP2协议，则建立HTTP2 PREFACE连接，建立这个连接的目的是啥？同步streamId吗？不太了解
+
+#### RealConnection.connectTls()
+
+1. 创建SSLSocket，这里用的JDK中实现的，不是特别清楚，可能用openssl库或者其他库之类的
+2. 获取ConnectionSpec，这里主要似乎是加密算法的支持，默认是ConnectionSpec.MODERN_TLS
+3. 如果支持TLS扩展，则配置对应TLS扩展信息，这里我的理解就是TLS
+4. 获取SSLSession，并对其验证，这里在我的理解中，应该就是TLS握手的第三步，客户端验证证书的过程
+5. 握手成功之后尝试从TLS中获取对应HTTP协议，ALPN协议就是基于TLS获取客户端和服务端是否支持HTTP2
+
+### CallServerInterceptor
+
+这个Interceptor的功能就是将字段输出到IO流当中
+
+1. 对于Http1.1，输入到字符串流
+2. 对于Http2，则是输入到二进制帧中，HEADER帧和BODY帧
+
+接下来看一下`interceptor()`的逻辑
+
+1. 这一步主要是将请求头创建成对应的流，HTTP1.1和HTTP2有不同的实现
+2. 判断是GET请求还是POST请求(PUT和DELETE等请求暂不涉及)，这里主要是通过有没有RequestBody来判断，如果有则要将RequestBody写入到sink中，sink有RealConnection创建
+3. 发送HTTP请求，调用sink.flush()
+4. 读取请求头`exchange.readResponseHeaders()`以及请求体`exchange.readResponseHeaders`
+
+
 
 
 
