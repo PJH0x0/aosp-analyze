@@ -5,7 +5,7 @@
 1. OkHttp流程指南
 2. 各个拦截器的作用
 3. Https Dns的实现方式
-4. Http1.1和Http/2的实现
+4. Http1.1和HTTP2的实现
 5. 连接池的作用与实现
 
 ## OkHttp流程
@@ -46,7 +46,7 @@ okhttp3.Response response = call.execute();
 
 ### RealCall.execute()
 
-1. 调用Dispatcher.executed()将call加入到执行的Call队列中，这一步的主要目的就是控制Call的启动、终结和取消，但是因为是同步请求，此时已经是启动了
+1. 调用`Dispatcher.executed()`将call加入到执行的Call队列中，这一步的主要目的就是控制Call的启动、终结和取消，但是因为是同步请求，此时已经是启动了
 2. 调用`getResponseWithInterceptorChain()`开始向服务器发送请求并获取回应
 
 ### RealCall.getResponseWithInterceptorChain()
@@ -59,7 +59,7 @@ okhttp3.Response response = call.execute();
 
 1. 检查自定义的interceptor是否合法
 2. 创建新的RealInterceptorChain，注意index+1
-3. 获取index对应的interceptor，并调用`interceptor.intercept()`方法交给Interceptor处理，获取返回值，思考一下为什么不能用循环
+3. 获取index当前的interceptor，并调用`interceptor.intercept()`方法交给Interceptor处理，获取返回值，思考一下为什么不能用循环
 4. 要求所有自定义的interceptor要调用`RealInterceptorChain.proceed()`,否则会造成请求无法发出
 5. 判断response或者response.body()是否为空
 
@@ -207,17 +207,17 @@ try {
 #### ExchangeFinder.findConnection()
 
 1. 尝试直接获取Transmitter.connection，失败的情况包括Transmitter.connection为null或者Transmitter.connection无法创建Exchange
-2. 尝试从RealConnectionPool获取匹配的情况Connection，匹配的条件主要是`isEligible()`：
+2. 调用`RealConnectionPool.transmitterAcquirePooledConnection()`尝试从RealConnectionPool获取匹配的情况Connection，匹配的条件主要是`isEligible()`：
     1. 已经费配过Transmitter或者这个Connection无法创建Exchange，则不匹配
     2. 是否是同一个Address，是则匹配上了
 3. 根据条件选择对应的Route，为创建新Connection做准备，这几个条件还没理解透
-4. 第二次尝试从RealConnectionPool获取匹配的情况Connection，这次匹配的条件在于DNS之后获取的Routes
+4. 第二次调用`RealConnectionPool.transmitterAcquirePooledConnection()`尝试从RealConnectionPool获取匹配的情况Connection，这次匹配的条件在于DNS之后获取的Routes
 5. 如果还是未获取到则创建新的RealConnection
 6. 调用`RealConnection.connect()`方法，进行socket和TLS连接
-7. 第三次尝试从RealConnectionPool获取匹配的Connection，匹配的条件则是requireMultiplexed = true
-8. 如果还是没有获取到，则更新connectionPool
+7. 第三次`RealConnectionPool.transmitterAcquirePooledConnection()`尝试从RealConnectionPool获取匹配的Connection，匹配的条件则是requireMultiplexed = true
+8. 如果还是没有获取到，则调用更新connectionPool
 
-第一次获取的是http1.1或者http2的Connection，第二次和第三次都是为了获取http2的复用的Connection
+第一次获取的是http1.1或者http2的Connection，第二次和第三次都是为了获取http2的复用的Connection，第二次获取复用的Connection是为了http2的速度(多个域名共享IP？)，第三次获取则是可能会有同时创建多相同的Connection，因为前一个还在connect当中，导致当前的无法复用，这次获取也只能是获取http2的Connection
 
 #### RealConnection.connect()
 
@@ -235,9 +235,9 @@ try {
 
 #### RealConnection.establishProtocol()
 
-1. 检查SslSocketFactory是否为null,为null则说明不支持HTTP2，默认会将协议申明为HTTP1.1，当然如果指定了H2_PRIOR_KNOWLEDGE，还是可以用http2
-2. 调用connectTls()进行TLS握手
-3. 如果支持HTTP2协议，则建立HTTP2 PREFACE连接，建立这个连接的目的是啥？同步streamId吗？不太了解
+1. 检查SslSocketFactory是否为null,为null则说明不支持HTTP2，默认会将协议申明为HTTP1.1，当然如果指定了H2_PRIOR_KNOWLEDGE，还是可以用http2,调用`startHttp2()`
+2. 调用`connectTls()`进行TLS握手
+3. 如果支持HTTP2协议，则调用`startHttp2()`建立HTTP2 PREFACE连接，建立这个连接的目的是啥？同步streamId吗？不太了解
 
 #### RealConnection.connectTls()
 
@@ -252,16 +252,43 @@ try {
 这个Interceptor的功能就是将字段输出到IO流当中
 
 1. 对于Http1.1，输入到字符串流
-2. 对于Http2，则是输入到二进制帧中，HEADER帧和BODY帧
+2. 对于Http2，则是输入到二进制帧中，HEADER帧和DATA帧
 
 接下来看一下`interceptor()`的逻辑
 
 1. 这一步主要是将请求头创建成对应的流，HTTP1.1和HTTP2有不同的实现
 2. 判断是GET请求还是POST请求(PUT和DELETE等请求暂不涉及)，这里主要是通过有没有RequestBody来判断，如果有则要将RequestBody写入到sink中，sink有RealConnection创建
-3. 发送HTTP请求，调用sink.flush()
+3. 发送HTTP请求，对于HTTP1.1调用`sink.flush()`，对于HTTP2，则是最终调用`FramingSink.close()`在close中判断是否有DATA帧，并且发送DATA和HEADER帧
 4. 读取请求头`exchange.readResponseHeaders()`以及请求体`exchange.readResponseHeaders`
 
+## Okhttp连接池
 
+连接池的核心功能是对于http1.1协议中**keep-alive**字段的实现，为了减少Socket的创建从而达到减少HTTP的延迟。在上面分析`ExchangeFinder.findConnection()`的时候已经对于连接池的存储与复用做过了解释，接下来主要补充一下
+
+1. 连接池的创建
+2. Call与Connection之间的关系
+3. 连接池过期清理
+
+### 连接池的创建
+
+默认是创建含有最大5个连接，单个最大5分钟的连接池，这里使用的是委派模式，最终创建的是RealConnectionPool对象
+
+### Call与Connection之间的关系
+
+一个Request对应一个Call，一个Call对应一个Transmitter中的Connection，所以如果能够复用Transmitter中的Connection，说明是同一个请求调用了`Call.execute()`多次
+
+### 连接池过期清理
+
+先来看一下连接池更新`RealConnection.put()`的逻辑
+
+1. 先看一下是不是正在清理中，如果没有，则在执行一个清理的Runnable
+2. 将Connection添加到ArrayDeque中
+
+
+
+
+
+额外的问题，貌似okhttp是会一直复用Connection的，即使指定Request中Header的Connection的字段不是**keep-alive**
 
 
 
