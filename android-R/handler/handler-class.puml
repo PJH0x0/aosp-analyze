@@ -1,0 +1,39 @@
+@startuml
+class Handler {
+    final Looper mLooper
+    final MessageQueue mQueue
+    final Callback mCallback
+    boolean sendMessage(Message msg)
+    boolean sendMessageAtTime(Message msg, long uptimeMillis)
+    boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis)
+    void handleMessage(Message msg)
+    void dispatchMessage(Message msg)
+}
+class Looper {
+    MessageQueue mQueue
+    {static} final ThreadLocal<Looper> sThreadLocal
+    {static} Looper prepare()
+    {static} void loop()
+}
+class MessageQueue {
+    Message mMessages
+    boolean mBlocked
+    boolean enqueueMessage()
+    Message next()
+}
+class Message {
+    int what
+    int arg1
+    int arg2
+    int flags
+    long when
+    Handler target
+    Message next
+}
+Handler o- Looper
+Handler o- MessageQueue
+Looper o- MessageQueue
+Handler --> Message
+MessageQueue "1" o-- "n" Message
+Message o-- Handler
+@enduml
