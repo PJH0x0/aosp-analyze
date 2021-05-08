@@ -1,0 +1,86 @@
+@startuml
+class ServiceManager {
+    {static} IServiceManager getIServiceManager()
+    {static} IBinder getService(String name)
+    {static} void addService(String name, IBinder service)
+    {static} String[] listServices()
+    {static} IBinder rawGetService(String name)
+}
+class ServiceManagerNative {
+    {static} IServiceManager asInterface(IBinder obj)
+}
+ServiceManager --> ServiceManagerNative
+ServiceManager --> BinderInternal
+ServiceManagerNative --> IServiceManager
+class ServiceManagerProxy {
+    IServiceManager mServiceManager
+    IBinder asBinder()
+    IBinder getService(String name)
+    IBinder checkService(String name)
+    void addService(String name, IBinder service, boolean allowIsolated, int dumpPriority)
+    String[] listServices(int dumpPriority)
+}
+class BinderInternal {
+    {static} native IBinder getContextObject()
+}
+interface IBinder {
+    String getInterfaceDescriptor()
+    IInterface queryLocalInterface(@NonNull String descriptor)
+    boolean transact(int code, @NonNull Parcel data, @Nullable Parcel reply, int flags)
+}
+class Binder {
+    final boolean transact(int code, Parcel data, Parcel reply, int flags)
+    boolean onTransact(int code, Parcel data, Parcel reply, int flags)
+}
+IBinder <|.. Binder
+interface IInterface {
+    IBinder asBinder()
+}
+package "IServiceManager" {
+interface IServiceManager {
+    IBinder getService(String var1)
+    IBinder checkService(String var1)
+    void addService(String var1, IBinder var2, boolean var3, int var4)
+    String[] listServices(int var1)
+}
+IInterface <|-- IServiceManager
+abstract class Stub {
+    {static} IServiceManager asInterface(IBinder obj)
+}
+class Proxy {
+    IBinder mRemote
+    IBinder asBinder()
+    String getInterfaceDescriptor()
+    IBinder getService(String name)
+    IBinder checkService(String name)
+    void addService(String name, IBinder service, boolean allowIsolated, int dumpPriority)
+    String[] listServices(int dumpPriority)
+}
+    Binder <|-- Stub 
+    IServiceManager <|.. Stub
+    IServiceManager <|.. Proxy
+    Proxy o--> IBinder
+    IServiceManager <|.. ServiceManagerProxy
+}
+class BinderProxy {
+    long mNativeData
+    static BinderProxy getInstance(long nativeData, long iBinder)
+}
+BinderProxy ..|> IBinder
+
+package "JNI" {
+
+class BinderProxyNativeData {
+    sp<IBinder> mObject
+    sp<DeathRecipientList> mOrgue
+}
+
+class binderproxy_offsets_t {
+    jclass mClass
+    jmethodID mGetInstance
+    jmethodID mSendDeathNotice
+    jfieldID mNativeData
+}
+}
+
+@enduml
