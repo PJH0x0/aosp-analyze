@@ -14,9 +14,9 @@
 > 3. JNI的作用，JNI可以理解为Java对象与native的通信的协议，它**既可以操作Java对象，又可以操作native的对象**，理解这点很重要
 > 4. Java的对象的本质，这点也很重要，因为JNI操作Java对象的时候要理解它在Java虚拟机中的理论模型(与其说是模型，其实展示出来就是一副图像)
 >
-> 对于1，2两点不清楚的可以阅读《OS: Three easy pieces》，是我看来最好的操作系统原理入门书籍，它厚重的原因是对于概念的解释很详细，专注于虚拟化，并发，文件系统三个方面，而不是大而全
+> 对于第一、二点不清楚的可以阅读《OS: Three easy pieces》，是我看来最好的操作系统原理入门书籍，它厚重的原因是对于概念的解释很详细，专注于虚拟化，并发，文件系统三个方面，而不是大而全
 >
-> 对于第三点不清楚的可以看一下《深入理解Java虚拟机》这本书，但这一点并非强制要求，在看代码的过程中可以跳过
+> 对于第三、四点不清楚的可以看一下《深入理解Java虚拟机》这本书
 
 ## Binder的使用
 
@@ -180,7 +180,7 @@ public void addService(String name, IBinder service, boolean allowIsolated, int 
 
 ### javaObjectForIBinder()
 
-1. 检查是不是Binder类型，这一步
+1. 检查是不是Binder类型，这一步是判断是不是传入的是`JavaBBinder`类型
 
 2. 创建BinderProxyNativeData类型的指针,并初始化对应的字段
 
@@ -334,7 +334,29 @@ private void init(long nativePtr) {
 
     这里有个之前没有提到的知识点，那就是Binder服务是什么，它在native对应又是个什么东西，接下来再分析一下
 
+### Binder初始化
+
+函数签名如下`public Binder(String descriptor)`，这里面做了一件很重要的事情，调用`getNativeBBinderHolder()`
+
+### android_os_Binder_getNativeBBinderHolder()
+
+`getNativeBBinderHolder()`对应JNI函数`android_os_Binder_getNativeBBinderHolder()`，里面创建了`JavaBBinderHolder`对象，并返回指针所对应的jlong
+
 ### Parcel.writeStrongBinder()
+
+调用了`nativeWriteStrongBinder()`
+
+### android_os_Parcel_writeStrongBinder()
+
+`nativeWriteStrongBinder()`对应JNI函数`android_os_Parcel_writeStrongBinder()`，
+
+1. 将java的Parcel中存储的本地Parcel的long类型指针获取到
+2. 调用`ibinderForJavaObject()`获取sp\<IBinder>
+3. 调用本地Parcel的`writeStrongBinder()`函数，这部分留到native Binder再进行梳理
+
+### ibinderForJavaObject()
+
+
 
 
 
