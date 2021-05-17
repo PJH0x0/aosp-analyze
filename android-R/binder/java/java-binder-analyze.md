@@ -56,7 +56,7 @@ public class ServerDemo {
 1. BinderProxy，**native binder的存储类**，里面存储的是native binder的指针，并且不是由Java类初始化，是在JNI代码中加载和创建
 2. IServiceManager.Stub，这个是个抽象类，没有实现类，在**平常使用Binder的时候一般都是继承它作为Binder实体类，但是IServiceManager是工作在native中的服务，所以Stub类不会被继承**，这种方式也常见于获取C++ Binder服务的时候
 
-### ServiceManager.addService()
+### [ServiceManager.addService()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/ServiceManager.java#L165)
 
 最终调用到`addService(String name, IBinder service, boolean allowIsolated, int dumpPriority)`，它里面的代码就一行
 
@@ -66,7 +66,7 @@ getIServiceManager().addService(name, service, allowIsolated, dumpPriority)
 
 看到正主`getIServiceManager()`了
 
-### ServiceManager.getIServiceManager()
+### [ServiceManager.getIServiceManager()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/ServiceManager.java#L110)
 
 ```java
 private static IServiceManager getIServiceManager() {
@@ -83,7 +83,7 @@ private static IServiceManager getIServiceManager() {
 
 这里使用的是单例模式，没有加线程保护，因为这个接口并不给应用使用，以及应用也不能直接操作`addService()``getService()`等接口，所以`getIServiceManager()`可以是认为运行在主线程中，**没错，我们与ServiceManager的通信也是采用Binder，只是ServiceManager的Binder是有点特殊**，我们先看`ServiceManagerNative.asInterface()`这个方法
 
-### ServiceManagerNative.asInterface()
+### [ServiceManagerNative.asInterface()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/ServiceManagerNative.java#L38)
 
 ```java
 public static IServiceManager asInterface(IBinder obj) {
@@ -98,7 +98,7 @@ public static IServiceManager asInterface(IBinder obj) {
 
 直接创建了一个`ServiceManagerProxy`对象
 
-### ServiceManagerProxy初始化
+### [ServiceManagerProxy初始化](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/ServiceManagerNative.java#L50)
 
 ```java
 public ServiceManagerProxy(IBinder remote) {
@@ -112,7 +112,7 @@ public ServiceManagerProxy(IBinder remote) {
 
 这里说明一点**AIDL并不等于Binder通信，它只是让Binder通信变得更加简单，就如同Retrofit和okhttp的关系**，AIDL生成的java代码在out目录下，所以想要分析的话得要先编译过Android源码才行，具体的路径是`out/soong/.intermediates/frameworks/base/framework-minus-apex/android_common/javac/shard30/classes/android/os/IServiceManager.class`使用AndroidStudio，IDEA或者反编译工具可以打开查看，如果想直接看的话我把它拷贝了一份[IServiceManager.java](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/IServiceManager.java)
 
-### IServiceManager.Stub.asInterface()
+### [IServiceManager.Stub.asInterface()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/IServiceManager.java#L58)
 
 ```java
 public static IServiceManager asInterface(IBinder obj) {
@@ -130,7 +130,7 @@ public static IServiceManager asInterface(IBinder obj) {
 1. 如果是相同进程，直接返回Binder对象，由于ServiceManager是单独处于一个进程，这里不会是相同进程，至于本地Service是怎么连接到的，我们稍后再讨论
 2. 如果不是相同进程，则创建`IServiceManager.Stub.Proxy`
 
-### IServiceManager.Stub.Proxy初始化
+### [IServiceManager.Stub.Proxy初始化](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/IServiceManager.java#L195)
 
 ```java
 Proxy(IBinder remote) {
@@ -167,18 +167,18 @@ public void addService(String name, IBinder service, boolean allowIsolated, int 
 
 和老方式也基本一样，所以新方式只是自动生成了这部分代码，减少了代码量，让IPC看起来就是一个方法调用，但最终都是调用`IBinder.transact()`方法进行IPC，接下来回到`ServiceManager.getIServiceManager()`方法中，上面的只能算作是一些代码技巧而已，接下来就是Binder的核心，获取ServiceManager的`IBinder`对象。
 
-### BinderInternal.getContextObject()
+### [BinderInternal.getContextObject()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/BinderInternal.java#L162)
 
 这是一个native方法，对应到`android_util_Binder.cpp`的`android_os_BinderInternal_getContextObject`
 
-### android_os_BinderInternal_getContextObject()
+### [android_os_BinderInternal_getContextObject()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/android_util_Binder.cpp#L1127)
 
 这里做了两件事情：
 
 1. 通过调用`ProcessState.getContextObject(NULL)`获取sp\<IBinder>，注意这里传递的参数NULL，即要获取的是IServiceManager的Binder，这一步留作native Binder解析流程中详细阐述
 2. 调用`javaObjectForIBinder()`将IBinder转为java对象，即BinderProxy对象，转换的过程就是将IBinder的指针(long类型)存储在BinderProxy的mNativeData中
 
-### javaObjectForIBinder()
+### [javaObjectForIBinder()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/android_util_Binder.cpp#L736)
 
 1. 检查是不是Binder类型，这一步是判断是不是传入的是`JavaBBinder`类型
 
@@ -215,7 +215,7 @@ public void addService(String name, IBinder service, boolean allowIsolated, int 
 
 如此一来返回的就是`BinderProxy`的对象实例，它也是实现了`IBinder`的接口
 
-### BinderProxy.getInstance()
+### [BinderProxy.getInstance()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/BinderProxy.java#L405)
 
 方法签名如下`private static BinderProxy getInstance(long nativeData, long iBinder)`，是一个私有的静态方法，返回的是BinderProxy的对象实例，再来对比一下`CallStaticObjectMethod(gBinderProxyOffsets.mClass, gBinderProxyOffsets.mGetInstance, (jlong) nativeData, (jlong) val.get())`，应该会觉得很相似。前面两个参数`gBinderProxyOffsets.mClass`和`gBinderProxyOffsets.mGetInstance`代表的分别是BinderProxy.class对象以及getInstance的方法名字，具体的可以看`static int int_register_android_os_BinderProxy(JNIEnv* env)`函数是怎么初始化gBinderProxyOffsets的字段的；后面两个参数就是getInstance的两个参数，将指针转成jlong类型传入到`BinderProxy.getInstance()`当中。接下来看一下getInstance中的逻辑
 
@@ -225,7 +225,7 @@ public void addService(String name, IBinder service, boolean allowIsolated, int 
 
 以上就是获取IServiceManager整个过程，需要记住一点**就是IServiceManager的所有接口，最终都是调用`BinderProxy.transact()`方法中**
 
-### ServiceManager.addService()
+### [ServiceManager.addService()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/ServiceManager.java#L194)
 
 回到最开始添加服务的位置，方法签名如下
 
@@ -241,7 +241,7 @@ public static void addService(String name, IBinder service, boolean allowIsolate
 
 在获取到`IserviceManager`之后的`addService()`则会调用到AIDL生成的方法当中
 
-### IServiceManager.addService()
+### [IServiceManager.Proxy.addService()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/IServiceManager.java#L259)
 
 这个方法的代码在上面有贴出，逻辑如下
 
@@ -250,13 +250,13 @@ public static void addService(String name, IBinder service, boolean allowIsolate
 3. 写入Binder对象，这里我们在下面进行讨论
 4. 调用`IBinder.transact()`方法，之前获取IServiceManager的时候就说过返回的是`BinderProxy`的对象实例，所以看`BinderProxy.transact()`方法
 
-### BinderProxy.transact()
+### [BinderProxy.transact()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/BinderProxy.java#L485)
 
 1. 判断是不是异步的Binder，这里有个变量`mWarnOnBlocking`，还记得之前在调用`BinderInternal.getContextObject()`之后还做了一个操作`Binder.allowBlocking(BinderInternal.getContextObject())`，这里会将`mWarnOnBloking`置为false，所以这块逻辑一般都是走不到
 2. 是否添加Trace，主要是性能跟踪
-3. 接下来的一堆操作不是很理解是要干嘛的，最后是调用到`transactNative()`，这是个native方法，方法签名如下`transactNative(int code, Parcel data, Parcel reply, int flags)`
+3. 接下来的一堆操作不是很理解是要干嘛的，最后是调用到`transactNative()`，这是个native方法，方法签名如下`transactNative(int code, Parcel data, Parcel reply, int flags)`，对应`android_util_Binder.cpp`的`android_os_BinderProxy_transact()`
 
-### android_os_BinderProxy_transact()
+### [android_os_BinderProxy_transact()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/android_util_Binder.cpp#L1373)
 
 1. 判断dataObj是否为NULL，所以即使不传任何数据，也要在调用`transact()`之前调用`Parcel.obtain()`获取Parcel对象
 2. 将java端的Parcel对象转为native的Parcel，包括data和reply，转换的方式其实和BinderProxy很类似，之后我们再来讨论
@@ -287,24 +287,24 @@ Parcel作用是将需要传递的所有的对象都序列化，变成有序字�
 4. Binder对象
 5. 一些常见的集合类和上述类型的数组
 
-### Parcel.writeInt()
+### [Parcel.writeInt()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/Parcel.java#L741)
 
 `writeByte()`,`writeBoolean()`这两种类型最终调用的也是`writeInt()`，以这个方法为例，看一下Parcel的过程，`writeInt()`直接调用了`nativeWriteInt()`方法
 
-### android_os_Parcel_writeInt()
+### **[android_os_Parcel_writeInt()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/android_os_Parcel.cpp#L233)**
 
 这个方法在`android_os_Parcel.cpp`中，直接将native Parcel对象的指针转换过来，调用`writeInt32()`将值写入，这里是由于Java中的int都是有符号的32位整数，于是这里引出了一个问题，这个`Parcel`对象是怎么初始化的？回顾一下前面Parcel对象是咋获取的`Parcel data = Parcel.obain()`
 
-### Parcel.obtain()
+### [Parcel.obtain()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/Parcel.java#L421)
 
 1. 看一下缓存池里面有没有Parcel对象，如果有则返回
 2. 如果没有则创建一个新的Parcel对象返回
 
-### Parcel构造方法
+### [Parcel构造方法](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/Parcel.java#L3499)
 
 里面就一句代码`init(nativePtr);`
 
-### Parcel.init()
+### [Parcel.init()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/Parcel.java#L3507)
 
 这里的方法签名如下`private void init(long nativePtr)`，需要传一个参数nativePtr，在构造方法中传的是0，所以相当于空指针，所以走的是else的流程
 
@@ -320,7 +320,7 @@ private void init(long nativePtr) {
 }
 ```
 
-### android_os_Parcel_create()
+### [android_os_Parcel_create()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/android_os_Parcel.cpp#L518)
 
 `nativeCreate()`对应到`android_os_Parcel.cpp`中的`static jlong android_os_Parcel_create(JNIEnv* env, jclass clazz)`，很简单的一句话，创建了一个Parcel对象，并且将指针转为了jlong类型返回，没有初始化任何东西
 
@@ -328,19 +328,19 @@ private void init(long nativePtr) {
 
 针对这个问题，我们需要先了解Binder服务在native中对应的是什么东西。
 
-### Binder初始化
+### [Binder初始化](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/Binder.java#L596)
 
 函数签名如下`public Binder(String descriptor)`，这里面做了一件很重要的事情，调用`getNativeBBinderHolder()`
 
-### android_os_Binder_getNativeBBinderHolder()
+### [android_os_Binder_getNativeBBinderHolder()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/android_util_Binder.cpp#L1017)
 
-`getNativeBBinderHolder()`对应`android_os_Parcel.cpp`JNI函数`android_os_Binder_getNativeBBinderHolder()`，里面创建了`JavaBBinderHolder`对象，并返回指针所对应的jlong
+`getNativeBBinderHolder()`对应`android_util_Binder.cpp`JNI函数`android_os_Binder_getNativeBBinderHolder()`，里面创建了`JavaBBinderHolder`对象，并返回指针所对应的jlong
 
-### Parcel.writeStrongBinder()
+### [Parcel.writeStrongBinder()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/Parcel.java#L833)
 
 调用了`nativeWriteStrongBinder()`
 
-### android_os_Parcel_writeStrongBinder()
+### [android_os_Parcel_writeStrongBinder()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/android_os_Parcel.cpp#L319)
 
 `nativeWriteStrongBinder()`对应`android_os_Parcel.cpp`JNI函数`android_os_Parcel_writeStrongBinder()`，
 
@@ -348,7 +348,7 @@ private void init(long nativePtr) {
 2. 调用`ibinderForJavaObject()`获取sp\<IBinder>
 3. 调用本地Parcel的`writeStrongBinder()`函数，这部分留到native Binder再进行梳理
 
-### ibinderForJavaObject()
+### [ibinderForJavaObject()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/android_util_Binder.cpp#L780)
 
 注意此时的方法已经跳转到了`android_os_Binder.cpp`中，
 
@@ -358,12 +358,12 @@ private void init(long nativePtr) {
     2. 调用JavaBBinderHolder.get()函数
 3. 判断是否为BinderProxy类型，很明显不是
 
-### JavaBBinderHolder.get()
+### [JavaBBinderHolder.get()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/binder/java/code/android_util_Binder.cpp#L458)
 
 1. 尝试获取mBinder，因为之前在`android_os_Binder_getNativeBBinderHolder()`中没有初始化这个属性，所以获取到的是NULL
 2. 判断sp\<JavaBBinder>为NULL，则创建一个新的JavaBBinder对象，并且将Java层的Binder对象传入进去了
 
 ### 问题总结
 
-对Java层的IBinder来说，写入的并不是Java对象，而是JavaBBinder对象，这是一个native层的IBinder对象，这又引出一个新的问题，**JavaBBinder是怎么和Java层的Binder进行连接的**，答案就在于创建JavaBBinder对象时传入的Binder对象，在`JavaBBinder.onTransact()`中会调用Java层`Binder.execTransact()`之后才是调用`Binder.onTransact()`
+对Java层的IBinder来说，写入的并不是Java对象，而是JavaBBinder对象，这是一个native层的IBinder对象，接下来又是native Parcel的活了，这又引出一个新的问题，**JavaBBinder是怎么和Java层的Binder进行连接的**，答案就在于创建JavaBBinder对象时传入的Binder对象，在`JavaBBinder.onTransact()`中会调用Java层`Binder.execTransact()`之后才是调用`Binder.onTransact()`
 
