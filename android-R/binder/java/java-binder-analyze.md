@@ -324,15 +324,9 @@ private void init(long nativePtr) {
 
 `nativeCreate()`对应到`android_os_Parcel.cpp`中的`static jlong android_os_Parcel_create(JNIEnv* env, jclass clazz)`，很简单的一句话，创建了一个Parcel对象，并且将指针转为了jlong类型返回，没有初始化任何东西
 
-### Parcel的一些问题
+## 为什么Parcel可以写入IBinder(`writeStrongBinder()`)，IBinder既不是Parcelable也不是基础类型，也不是Parcelable对象
 
-1. 为什么可以支持集合类
-
-    可以将集合看成数组，只要前面加一个标志，然后遇到这个标志就读取集合的大小，然后根据大小一个一个读取元素
-
-2. 为什么Parcel可以写入IBinder(`writeStrongBinder()`)，IBinder既不是Parcelable也不是基础类型，也不是Parcelable对象
-
-    这里有个之前没有提到的知识点，那就是Binder服务是什么，它在native对应又是个什么东西，接下来再分析一下
+针对这个问题，我们需要先了解Binder服务在native中对应的是什么东西。
 
 ### Binder初始化
 
@@ -340,7 +334,7 @@ private void init(long nativePtr) {
 
 ### android_os_Binder_getNativeBBinderHolder()
 
-`getNativeBBinderHolder()`对应JNI函数`android_os_Binder_getNativeBBinderHolder()`，里面创建了`JavaBBinderHolder`对象，并返回指针所对应的jlong
+`getNativeBBinderHolder()`对应`android_os_Parcel.cpp`JNI函数`android_os_Binder_getNativeBBinderHolder()`，里面创建了`JavaBBinderHolder`对象，并返回指针所对应的jlong
 
 ### Parcel.writeStrongBinder()
 
@@ -348,7 +342,7 @@ private void init(long nativePtr) {
 
 ### android_os_Parcel_writeStrongBinder()
 
-`nativeWriteStrongBinder()`对应JNI函数`android_os_Parcel_writeStrongBinder()`，
+`nativeWriteStrongBinder()`对应`android_os_Parcel.cpp`JNI函数`android_os_Parcel_writeStrongBinder()`，
 
 1. 将java的Parcel中存储的本地Parcel的long类型指针获取到
 2. 调用`ibinderForJavaObject()`获取sp\<IBinder>
@@ -356,7 +350,20 @@ private void init(long nativePtr) {
 
 ### ibinderForJavaObject()
 
+注意此时的方法已经跳转到了`android_os_Binder.cpp`中，
 
+1. 判断java对象是否为null
+2. 判断是否为Binder类型(相当与instanceof)，在这里为true
+    1. 获取JavaBBinderHolder指针
+    2. 调用JavaBBinderHolder.get()函数
+3. 判断是否为BinderProxy类型，很明显不是
 
+### JavaBBinderHolder.get()
 
+1. 尝试获取mBinder，因为之前在`android_os_Binder_getNativeBBinderHolder()`中没有初始化这个属性，所以获取到的是NULL
+2. 判断sp\<JavaBBinder>为NULL，则创建一个新的JavaBBinder对象，并且将Java层的Binder对象传入进去了
+
+### 问题总结
+
+对Java层的IBinder来说，写入的并不是Java对象，而是JavaBBinder对象，这是一个native层的IBinder对象，这又引出一个新的问题，**JavaBBinder是怎么和Java层的Binder进行连接的**，答案就在于创建JavaBBinder对象时传入的Binder对象，在`JavaBBinder.onTransact()`中会调用Java层`Binder.execTransact()`之后才是调用`Binder.onTransact()`
 
