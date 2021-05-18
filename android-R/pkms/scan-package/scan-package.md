@@ -173,9 +173,17 @@ scanDirLI的逻辑比较简单，
 
 ### commitPackageSettings()
 
-这个
-
-
-
-
+1. 判断是不是有厂商自定义的ResolveActivity(`config_customResolverActivity`属性)，如果有则调用`setUpCustomResolverActivity()`设置ResolveActivity为自定义的，ResolveActivity就是处理未指定的`android.action.View`的
+2. 处理ResolveActivity，如果没有的话指定为framework的ResolveActivity
+3. 更新SharedLibraries，这部分还不太熟悉
+4. 检查是否需要frozen应用，如果需要但没有frozen则退出安装，有以下几种情况无需frozen应用
+    1. SCAN_BOOTING，开机的时候，因为这时没有应用启动的了
+    2. SCAN_DONT_KILL_APP，安装不杀死应用，这个一般要么在PkMS中指定，要么在adb安装的时候指定
+    3. SCAN_IGNORE_FROZEN，忽略FROZEN，这个连adb也没有指定选项，可能是代码遗留
+5. 调用`mSettings.insertPackageSettingLPw()`，**这里并非是更新packages.xml的地方，只是将pkgSetting，放到Settings.mPackages中**
+6. 将AndroidPackage放到mPackages中
+7. 更新KeySetManagerService的应用信息，这是一个管理签名的服务
+8. 添加自定义的Permission和PermissionGroup到PermissionManagerService中
+9. 添加保护广播，但这个并非给安装应用使用，而是系统应用，例如：teleservice等
+10. 对于老的package或者Permission更新的需要对于申请了这些权限的应用更新权限，注意，这些权限也是由应用定义的
 
