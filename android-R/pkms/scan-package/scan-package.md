@@ -187,3 +187,10 @@ scanDirLI的逻辑比较简单，
 9. 添加保护广播，但这个并非给安装应用使用，而是系统应用，例如：teleservice等
 10. 对于老的package或者Permission更新的需要对于申请了这些权限的应用更新权限，注意，这些权限也是由应用定义的
 
+### 扫描完成之后需要做的事情
+
+1. 清除掉已删除的系统应用和disable原本就disable的应用
+2. 调用`PermissionManagerService.updateAllPermissions()`更新权限，这部分是在所有应用扫描完成之后才执行
+3. 创建应用数据存储的目录，**注意这里只是针对system core应用(如SystemUI)做的操作，data下的应用由于有多用户的存在，每个data应用是针对单个用户的**，
+4. 最终将PackageSetting和permission以及签名的fingerprint写入到packages.xml当中，这里这样设计我觉得应该是怕中途关机，这样一次性写入所有的信息可以尽量减少写了一半关机的情况
+
