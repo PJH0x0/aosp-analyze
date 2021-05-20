@@ -28,7 +28,7 @@
 
 ## 应用扫描过程
 
-### scanDirLI()
+### [scanDirLI()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/scan-package/code/PackageManagerService.java#L1)
 
 scanDirLI的几个参数说明一下，
 
@@ -43,7 +43,7 @@ scanDirLI的逻辑比较简单，
 2. 使用ExecutorService(线程池)对所有目录和apk进行解析，详细看[PkMS解析package指南](https://juejin.cn/post/6941298492174729224)
 3. 获取ParsedPackage并进行调用`addForInitLI()`
 
-### addForInitLI()
+### [addForInitLI()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/scan-package/code/PackageManagerService.java#L86)
 
 逻辑相当的复杂，考虑情况也要很多，**有些自己也没搞懂，只挑能说的说一下**
 
@@ -126,7 +126,7 @@ scanDirLI的逻辑比较简单，
 
 7. 调用`commitReconciledScanResultLocked()`
 
-### scanPackageNewLI()
+### [scanPackageNewLI()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/scan-package/code/PackageManagerService.java#L325)
 
 需要注意的是**这个方法不仅仅是开机扫描的时候用，在安装应用的时候也是执行的**
 
@@ -137,7 +137,7 @@ scanDirLI的逻辑比较简单，
 3. 获取`SharedUserSetting`，这个在`addForInitLI()`获取过一次，是为了扫描disabledPkgSetting获取的
 4. 构建`ScanRequest`并且调用`scanPackageOnlyLI()`获取`ScanResult`
 
-### scanPackageOnlyLI()
+### [scanPackageOnlyLI()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/scan-package/code/PackageManagerService.java#L395)
 
 这部分主要的逻辑是更新packageSetting和nativelibrary的解析
 
@@ -148,7 +148,7 @@ scanDirLI的逻辑比较简单，
 5. 设置安装的时间戳，主要是第一次安装和当前安装，目前不知道这个属性的用处
 6. 创建`ScanResult`并返回
 
-### reconcilePackagesLocked()
+### [reconcilePackagesLocked()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/scan-package/code/PackageManagerService.java#L729)
 
 先说一下几个参数:
 
@@ -161,7 +161,7 @@ scanDirLI的逻辑比较简单，
 2. 调用`verifySignatures()`进行校验签名
 3. 最后生成`ReconciledPackage`并返回
 
-### commitReconciledScanResultLocked()
+### [commitReconciledScanResultLocked()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/scan-package/code/PackageManagerService.java#L965)
 
 这里面也是安装应用和扫描应用同时都会调用的方法，先只看扫描的情况
 
@@ -171,7 +171,7 @@ scanDirLI的逻辑比较简单，
 2. 将PackageSetting写入package-restrictions.xml，里面主要存储的是disabled和enabled四大组件
 3. 最后调用`commitPackageSettings()`进行最后一步处理
 
-### commitPackageSettings()
+### [commitPackageSettings()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/scan-package/code/PackageManagerService.java#L1097)
 
 1. 判断是不是有厂商自定义的ResolveActivity(`config_customResolverActivity`属性)，如果有则调用`setUpCustomResolverActivity()`设置ResolveActivity为自定义的，ResolveActivity就是处理未指定的`android.action.View`的
 2. 处理ResolveActivity，如果没有的话指定为framework的ResolveActivity

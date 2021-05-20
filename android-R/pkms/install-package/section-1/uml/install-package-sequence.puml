@@ -1,0 +1,40 @@
+@startuml
+participant InstallInstalling as a
+participant PackageInstaller as e
+participant PackageInstallerService as b
+participant PackageInstallerSession as c
+participant PackageManagerService as d
+a -> a ++ : onCreate()
+a -> e ++ : createSession()
+e -> b ++ : createSession()
+b -> b : createSessionInternal()
+b -> b : allocateSessionIdLocked()
+b -> b : buildSessionDir()
+return sessionId
+return sessionId
+
+a -> a : onResume()
+== work thread start ==
+a -> e ++ : openSession()
+e -> b ++ : openSession()
+b -> b : openSessionInternal()
+b -> c ++ : open()
+c -> c : prepareStageDir()
+return
+return IPackageInstallerSession
+return Session
+a -> e ++ : openWrite()
+e -> c ++ : openWrite()
+c -> c : doWriteInternal()
+return ParcelFileDescriptor
+return FileBridgeOutputStream
+== work thread end ==
+a -> c ++ : commit()
+c -> c : dispatchStreamValidateAndCommit()
+c -> c : handleStreamValidateAndCommit()
+c -> c : handleInstall()
+c -> c : installNonStagedLocked()
+c -> c : makeSessionActiveLocked()
+c -> d --++ : installStage()
+deactivate a
+@enduml
