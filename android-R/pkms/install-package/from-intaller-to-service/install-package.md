@@ -82,7 +82,7 @@
 
 ### PackageInstallerSession.open()
 
-回顾一下初始化`PackageInstallerSession`的参数就可以发现`mPrepared = false`，`stageDir = /data/app/vmdl{sessionId}.tmp`，接着会调用`prepareStageDir()`创建这个目录并设置权限为775。
+回顾一下初始化`PackageInstallerSession`的参数就可以发现`mPrepared = false`，这个变量用于一个session同时安装多个apk判断stageDir是否创建，后面app bundle的安装会解释。`stageDir = /data/app/vmdl{sessionId}.tmp`，接着会调用`prepareStageDir()`创建这个目录并设置权限为775。
 
 综上`openSession()`最主要的目的就是创建目录，并返回`PackageInstallerSession`实体给PackageInstaller，然后PackageInstaller对其进行重新封装了一个Session
 
@@ -99,7 +99,7 @@
 1. 初始化`FileBridge`，并将其加入一个ArrayList中，加入到List中自然是为了统一清理，因为它是一个线程
 2. 调用`FileUtils.isValidExtFilename()`判断文件名是否有效，文件命名需要符合ext4的文件系统的命名规范
 3. 创建文件，设置权限，最后调用`StorageManager.allocateBytes()`预先分配好和需要拷贝apk一样大小的字节，这是为了快速写入文件
-4. 不考虑`incomingFd`和`ENABLE_REVOCABLE_FD`，不走这两个分支
+4. `incomingFd`是为了adb安装设计的，因为是相同进程，所以可以直接拷贝到stageDir中，这个`ENABLE_REVOCABLE_FD`还未搞清楚，暂时就不讨论了
 5. 调用`FileBridge.setTargetFile()`和`FileBridge.start()`方法启动线程，调用`FileBridge.getClientSocket()`返回客户端socket
 
 ### FileBridge初始化
