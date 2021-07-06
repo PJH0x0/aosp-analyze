@@ -109,5 +109,18 @@ Split apk的结构很简单，通常是由一个base apk以及一个或多个spl
 2. 调用`doCommitSession()`发送安装请求
 3. 调用`doWaitForStagedSessionReady()`处理一些错误和等待session完成
 
+#### PackageManagerShellCommand.doCommitSession()
+
+1. 调用`PackageInstallerService.openSession()`以获取session
+2. 判断.dm和.apk的名字是否匹配，这里.dm是dex metadata的意思，但是具体是干嘛的还不知道，感觉上是不是和插件化有关
+3. 创建LocalIntenReceiver，用于获取安装的结果
+4. 调用`PackageInstallerSession.commit()`进行提交，详情见
+5. 调用`LocalIntenReceiver.getResult()`获取安装结果，注意，这里是一个阻塞队列，会阻塞至应用安装完成
+6. 根据结果打印安装成功，或者安装错误的原因
+
+# 总结
+
+adb安装应用和点击安装应用是一样的，但是adb安装的可以使用各种flag进行调试，另外就是app bundle，app bundle安装的原理就是分为资源apk和代码apk，资源apk按需下发安装，代码apk一定要安装，安装过程其实是和普通apk相类似，只是parse apk的时候有所区别，一般的apk只需parse base.apk即可，而app bundle则需要parse所有的apk并将属性整合
+
 
 
