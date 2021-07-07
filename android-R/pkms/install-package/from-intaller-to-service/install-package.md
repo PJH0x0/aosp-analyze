@@ -1,6 +1,6 @@
 # 应用安装源码阅读指南（上）
 
-> 前一篇[Android 开机应用扫描指南](https://juejin.cn/post/6963828909460684830)其实专注的是系统应用的安装，有一些安装的细节忽略掉了。而应用安装的部分则要更加复杂一些，由于应用安装的源码过程很长，所以分为三个部分，第一部分是从安装界面到安装服务，第二部分则是说一下AppBundle相关的逻辑，第三部分则集中在PackageManagerService中
+> 前一篇[Android 开机应用扫描指南](https://juejin.cn/post/6963828909460684830)其实专注的是系统应用的安装，有一些安装的细节忽略掉了。而应用安装的部分则要更加复杂一些，由于应用安装的源码过程很长，所以分为三个部分，第一部分是从安装界面到安装服务，第二部分则是说一下AppBundle和adb安装应用的逻辑，第三部分则集中在PackageManagerService中
 
 ## UML时序图
 
@@ -14,7 +14,7 @@
 2. 以Session为单位拷贝文件到一个临时目录中
 3. 终止拷贝，提交给PackageManagerService解析和扫描
 
-## IntallInstalling.onCreate()
+## [IntallInstalling.onCreate()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/InstallInstalling.java#L80)
 
 当用户点击文件夹中apk进行安装时(前提是文件管理应用已获取到安装应用的权限)会经过三个界面，分别是PackageInstallerActivity(是否确认安装)、InstallInstalling(安装进度条)、InstallSuccess(显示完成、打开)，我们着重看一下InstallInstalling的逻辑，这部分才是和安装服务有交互的
 
@@ -34,7 +34,7 @@
 
 接下来看一下创建session的逻辑
 
-## PackageInstallerService.createSessionInternal()
+## [PackageInstallerService.createSessionInternal()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerService.java#L491)
 
 创建session的方法最终是调用到`createSessionInternal()`，看一下这块的逻辑
 
@@ -62,7 +62,7 @@
     6. 后面的基本跟默认值差不多，可以认为是未初始化
 6. 固化PackageInstallerSession，将Session加入到SparseArray中，并将其写入到xml中方便查找，可以通过sessionId找到对应的Session
 
-## InstallingAsyncTask.doInBackground()
+## [InstallingAsyncTask.doInBackground()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/InstallInstalling.java#L337)
 
 在获取到sessionId之后，就可以开始安装过程，PackageInstaller是将其放在`onResume()`中初始化`InstallingAsyncTask`然后执行安装过程，首先是到子线程中的`doInBackground()`
 
@@ -72,27 +72,27 @@
     2. 接着调用`PackageInstaller.Session.openWrite()`获取OutputStream
     3. 每次读取1M字节的文件数据输送到Session，**这边要特别注意，这里是通过socket发送到PackageInstallerSession之后，再写入文件当中**
 
-### PackageInstaller.openSession()
+### [PackageInstaller.openSession()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstaller.java#L458)
 
 这里的方法很简单调用`PackageInstallerService.openSession()`并对其做一层封装成`PackageInstaller.Session`
 
-### PackageInstallerService.openSessionInternal()
+### [PackageInstallerService.openSessionInternal()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerService.java#L790)
 
 `PackageInstallerService.openSession()`最终会调用到这个方法，这里面的逻辑也比较简单，先从存储PackageInstallerSession的mSessions根据sessionId获取PackageInstallerSession，然后调用其open()方法
 
-### PackageInstallerSession.open()
+### [PackageInstallerSession.open()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerSession.java#L2565)
 
 回顾一下初始化`PackageInstallerSession`的参数就可以发现`mPrepared = false`，这个变量用于一个session同时安装多个apk判断stageDir是否创建，后面app bundle的安装会解释。`stageDir = /data/app/vmdl{sessionId}.tmp`，接着会调用`prepareStageDir()`创建这个目录并设置权限为775。
 
 综上`openSession()`最主要的目的就是创建目录，并返回`PackageInstallerSession`实体给PackageInstaller，然后PackageInstaller对其进行重新封装了一个Session
 
-### PackageInstaller.Session.openWrite()
+### [PackageInstaller.Session.openWrite()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstaller.java#L1018)
 
 1. `ENABLE_REVOCABLE_FD`是一种新型写的方式，目前还未普及
 2. 调用`PackageInstallerSession.openWrite()`获取ParcelFileDescriptor，这个文件描述符指向的是`/data/app/vmdl{sessionId}.tmp/PackageInstaller`
 3. 初始化`FileBridgeOutputStream`并返回
 
-### PackageInstallerSession.doWriteInternal()
+### [PackageInstallerSession.doWriteInternal()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerSession.java#L950)
 
 `PackageInstallerSession.openWrite()`最终调用到`PackageInstallerSession.doWriteInternal()`，
 
@@ -102,7 +102,7 @@
 4. `incomingFd`是为了adb安装设计的，因为是相同进程，所以可以直接拷贝到stageDir中，这个`ENABLE_REVOCABLE_FD`还未搞清楚，暂时就不讨论了
 5. 调用`FileBridge.setTargetFile()`和`FileBridge.start()`方法启动线程，调用`FileBridge.getClientSocket()`返回客户端socket
 
-### FileBridge初始化
+### [FileBridge初始化](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/FileBridge.java#L68)
 
 FileBridge继承自Thread，就是一个线程，它在构造函数中创建一对socket，包括服务端和客户端，对应的应该就是Linux里面的[socketpair()](https://man7.org/linux/man-pages/man2/socketpair.2.html)，是可以在进程间传递文件描述符的一种机制，具体的机制我也还没太弄懂，主要是`socketpair()`是在父子进程间通信，不同进程的文件描述符应当是不共享的，除了0，1，2这三个标准流，不过这种方式倒是值得学习一番，以后想要在不同进程间写文件可以考虑这种方式，**它的优势在于速度比tcp socket要快两倍左右**。目前我暂且将其认为是c/s的socket，client是InstallInstalling进程，server端是PackageInstallerSession，拷贝apk的过程大致如下：
 
@@ -116,7 +116,7 @@ FileBridge继承自Thread，就是一个线程，它在构造函数中创建一�
 
 接下来我们先回到`InstallingAsyncTask.doInBackground()`看一下OutputStream是怎么写的，需要注意`Session.openWrite()`返回的是`FileBridge.FileBridgeOutputStream`
 
-### FileBridge.FileBridgeOutputStream.write()
+### [FileBridge.FileBridgeOutputStream.write()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/FileBridge.java#L176)
 
 这里对应的就是`doInBackground()`中的`out.write(buffer, 0, numRead);`，注意此时是运行在PackageInstaller进程中
 
@@ -125,7 +125,7 @@ FileBridge继承自Thread，就是一个线程，它在构造函数中创建一�
 3. 将要写入的文件长度`byteCount`设置到mTemp中，往后偏移4字节，前面4字节是命令
 4. 将`buffer`和`mTemp`都传给服务端
 
-### FileBridge.run()
+### [FileBridge.run()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/FileBridge.java#L97)
 
 在线程中不停的接收命令和数据，并将其写入到`/data/app/vmdl{sessionId}.tmp/PackageInstaller`文件当中，直到客户端调用了close命令。需要注意的是怎么写的就需要怎么读，并且此时是运行在PackageInstallerSession进程中
 
@@ -134,14 +134,14 @@ FileBridge继承自Thread，就是一个线程，它在构造函数中创建一�
 3. 接下来获取长度，byteCount
 4. 最后获取文件字节，每8KB位1组，然后写入到文件当中
 
-## InstallInstalling.onPostExecute()
+## [InstallInstalling.onPostExecute()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/InstallInstalling.java#L393)
 
 在将文件拷贝之后，接下来就可以交给PackageManagerService进行安装了，
 
 1. 设置安装结果的回调广播，当安装成功或者失败会发出广播进行通知界面
 2. 调用`PackageInstaller.Session.commit()`方法提交给`PackageInstallerSession`继续进行处理
 
-## PackageInstallerSession.commit()
+## [PackageInstallerSession.commit()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerSession.java#L1121)
 
 在提交到`PackageInstallerService`之前还有一些工作要进行
 
@@ -149,7 +149,7 @@ FileBridge继承自Thread，就是一个线程，它在构造函数中创建一�
 2. 调用`markAsSealed()`判断调用`commit()`的进程是否合法，最主要还是通过uid来判断
 3. 调用`dispatchStreamValidateAndCommit()`发送`MSG_STREAM_VALIDATE_AND_COMMIT`消息，这里是为了将提交切换到子线程
 
-## PackageInstallerSession.handleStreamValidateAndCommit()
+## [PackageInstallerSession.handleStreamValidateAndCommit()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerSession.java#L1158)
 
 子线程收到消息后直接调用了`handleStreamValidateAndCommit()`这部分逻辑如下
 
@@ -157,14 +157,14 @@ FileBridge继承自Thread，就是一个线程，它在构造函数中创建一�
 2. 判断是不是multipackage，忽略这部分的逻辑
 3. 给当前的子线程发送个`MSG_INSTALL`消息
 
-### PackInstallerSession.streamValidateAndCommit()
+### [PackInstallerSession.streamValidateAndCommit()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerSession.java#L1414)
 
 做了两件事情
 
 1. 调用`streamAndValidateLocked()`进行进一步校验
 2. 更新InstallInstalling的进度条至80%
 
-### PackageInstallerSession.streamAndValidateLocked()
+### [PackageInstallerSession.streamAndValidateLocked()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerSession.java#L1544)
 
 1. `params.isMultiPackage`这里为false
 2. `prepareDataLoaderLocked()`也是false，虽然没有接触过，但是从函数名称中可以看出，这应该是同网络进行安装应用的一种方式
@@ -172,7 +172,7 @@ FileBridge继承自Thread，就是一个线程，它在构造函数中创建一�
 4. 调用`validateApkInstallLocked()`进行apk验证
 5. `params.isStaged`为false，之前在InstallInstalling中没有设置过这一属性
 
-### PackageInstallerSession.validateApkInstallLocked()
+### [PackageInstallerSession.validateApkInstallLocked()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerSession.java#L2023)
 
 先说结论，方法里面其实做了三件事情
 
@@ -199,7 +199,7 @@ FileBridge继承自Thread，就是一个线程，它在构造函数中创建一�
 
 至此，所有针对客户端传过来的apk文件校验均已完成
 
-## PackageInstallerSession.handleInstall()
+## [PackageInstallerSession.handleInstall()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerSession.java#L1683)
 
 回头看`PackageInstallerSession.handleStreamValidateAndCommit()`这部分的逻辑，在完成校验过后发送了一个`MSG_INSTALL`的消息，对应就是`handleInstall()`方法
 
@@ -208,12 +208,12 @@ FileBridge继承自Thread，就是一个线程，它在构造函数中创建一�
 3. 判断`isApexInstallation()`，apex应用，专给play store应用安装
 4. 调用`installNonStagedLocked()`进行安装，至于参数childSessions暂且认定它是空的
 
-## PackageInstallerSession.installNonStagedLocked()
+## [PackageInstallerSession.installNonStagedLocked()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerSession.java#L1723)
 
 1. 调用`makeSessionActiveLocked()`激活session，其实是创建了一个新的Session，`PackageManagerService.ActiveInstallSession`，这样做的目的个人猜测应该是为了减少session大小
 2. 判断`isMultiPackage()`，这里默认为false，之后调用到`PackageManagerService.installStage()`
 
-## PackageInstallerSession.makeSessionActiveLocked()
+## [PackageInstallerSession.makeSessionActiveLocked()](https://github.com/TeenagerPeng/aosp-analyze/blob/main/android-R/pkms/install-package/from-intaller-to-service/code/PackageInstallerSession.java#L1766)
 
 1. 对一些条件`mRelinquished, mDestroyed, mSealed`，进行判断
 2. 判断`needToAskForPermissionsLocked()`是否需要申请权限，这里无需申请即可
