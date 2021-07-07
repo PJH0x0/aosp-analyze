@@ -1,0 +1,35 @@
+@startuml
+participant PackageInstallerSession as pis
+participant PackageManagerService as pkms
+participant PkMS.HandlerParams as hp
+participant PkMS.InstallParams as ip
+participant PkMS.FileInstallArgs as fia
+participant PackageParser2 as pp2
+participant Settings as s
+pis -> pkms++ : installStage()
+activate ip
+pkms -> hp++ : startCopy()
+hp -> ip : handleStartCopy()
+ip -> pkms++ : createInstallArgs()
+pkms -> ip : FileInstallArgs
+activate fia
+ip -> ip : handleReturnCode()
+ip -> fia : copyApk()
+fia -> fia : doCopyApk()
+ip -> pkms : processPendingInstall()
+pkms -> pkms : processInstallRequestsAsync()
+pkms -> pkms++ : installPackagesTracedLI()
+deactivate hp
+deactivate ip
+pkms -> pkms : installPackagesLI()
+===preparePackageLI===
+pkms -> pkms : preparePackageLI()
+pkms -> pp2++ : parsePackage()
+return ParsedPackage
+pkms->fia : doRename()
+pkms->pkms : freezePackageForInstall()
+===scanPackageTracedLI===
+pkms->pkms : scanPackageTracedLI()
+pkms->pkms : scanPackageNewLI()
+pkms->pkms : scanPackageOnlyLI()
+@enduml
