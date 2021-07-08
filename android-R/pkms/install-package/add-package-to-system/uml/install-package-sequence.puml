@@ -27,9 +27,52 @@ pkms -> pkms : preparePackageLI()
 pkms -> pp2++ : parsePackage()
 return ParsedPackage
 pkms->fia : doRename()
+deactivate fia
 pkms->pkms : freezePackageForInstall()
 ===scanPackageTracedLI===
 pkms->pkms : scanPackageTracedLI()
 pkms->pkms : scanPackageNewLI()
 pkms->pkms : scanPackageOnlyLI()
+activate s
+alt createNewPackage
+    pkms->s : createNewSetting()
+else updatePackage
+    pkms->s : updatePackageSetting()
+end
+===optimisticallyRegisterAppId===
+pkms->pkms : optimisticallyRegisterAppId()
+pkms->s : registerAppIdLPw()
+alt uid == 0
+    s->s : acquireAndRegisterNewAppIdLPw()
+else uid exist
+    s->s : registerExistingAppIdLPw()
+end
+===reconcilePackagesLocked===
+pkms->pkms : reconcilePackagesLocked()
+===commitPackagesLocked===
+pkms->pkms : commitPackagesLocked()
+alt replace
+    alt system
+        pkms->pkms : disableSystemPackageLPw()
+    else install app
+        pkms->pkms : executeDeletePackageLIF()
+    end
+end
+pkms->pkms : commitReconciledScanResultLocked()
+pkms->pkms : commitPackageSettings()
+pkms->pkms : updateSettingsLI()
+pkms->s : writeLPr()
+deactivate s
+pkms->PermissionManagerService++ : updatePermissions()
+deactivate PermissionManagerService
+===executePostCommitSteps===
+pkms->pkms : executePostCommitSteps()
+pkms->pkms : prepareAppDataAfterInstallLIF()
+pkms->ArtManagerService++ : prepareAppProfiles()
+deactivate ArtManagerService
+pkms->PackageDexOptimizer++ : performDexOpt()
+deactivate PackageDexOptimizer
+===Call back observer===
+pkms->pkms : restoreAndPostInstall()
+pkms->pkms-- : handlePackagePostInstall()
 @enduml

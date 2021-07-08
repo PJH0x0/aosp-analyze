@@ -1,0 +1,27 @@
+@startuml
+participant InstallInstalling as ii
+participant InstallEventReceiver as ier
+participant PackageInstallerSession as pis
+participant PackageManagerService as pkms
+participant IPackageInstallObserver2.Stub as stub
+
+activate ii
+ii->ier++ : addObserver()
+ier-->ii : mInstallId
+ii->pis++ : commit() params IntentSender <==> InstallEventReceiver
+pis->pkms++ : installStage() params ActiveInstallSession.localObserver type IPackageInstallObserver2.Stub
+...wait install compelete...
+pkms->pkms : restoreAndPostInstall()
+pkms->pkms : handlePackagePostInstall()
+pkms->pkms : notifyInstallObserver()
+pkms->stub++ : onPackageInstalled()
+deactivate pkms
+stub->pis : dispatchSessionFinished()
+deactivate stub
+pis->pis : sendOnPackageInstalled()
+pis->ier : onReceive()
+deactivate pis
+ier->ii : launchFinishBasedOnResult()
+deactivate ier
+deactivate ii
+@enduml
