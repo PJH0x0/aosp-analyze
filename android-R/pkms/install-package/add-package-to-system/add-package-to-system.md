@@ -44,4 +44,43 @@
 
 ## installPackagesLI()
 
-这个方法很长，分为主要三个阶段，准备，扫描，和提交，
+这个方法是安装最主要的部分，分为主要三个阶段，准备，扫描，和提交。
+
+1. 准备阶段就是解析Package，然后生成对应的数据结构
+2. 扫描阶段是生成Package在系统中的属性，例如：uid，code位置，确定真正的包名，确定sharedUserId等等
+3. 提交阶段主要就是申请权限，以及将属性缓存在xml中，方便下次开机的时候获取
+
+接下来看一下具体的流程
+
+1. 参数，可以看到一开始就建立了很多Map，其实这里无需关注，只有当我们要批量安装加了--multipackage参数的时候才可能会出现，这里可以假设InstallRequest列表中就一个
+2. 调用`preparePackageLI()`获取解析之后的PrepareResult
+3. 调用`scanPackageTracedLI()`获取扫描之后的结果ScanResult
+4. 调用`reconcilePackagesLocked()`做一些一致性的处理
+5. 调用`commitPackagesLocked()`将属性进行缓存到xml并申请权限
+6. 调用`executePostCommitSteps()`创建app的目录以及做dex的优化工作
+
+## preparePackageLI()
+
+1. 确定scanFlags和parseFlags
+2. 调用`PackageParser2.parsePackage()`进行扫描apk
+3. 调用`ParsingPackageUtils.getSigningDetails()`获取apk的签名，当然，如果是安装应用会在之前PackageInstallerSession中获取签名
+4. 判断是否存在已安装应用，如果有，则需要进行签名验证或者更新签名，更新签名需要老的package包含，首先是检测之前安装的应用是否匹配，另外还要检测sharedUserId的应用是否匹配签名，不过不知道为何要在这校验签名，因为之后在`reconcilePackagesLocked()`也会进行校验
+5. 处理定义的权限，具体处理的逻辑可以不看，也不大能看懂，主要看抛出的异常是什么，基本可以确定是对重复定义的权限以及覆盖系统权限的一些权限进行检查
+6. 判断`FileInstallArgs.move`，然后设置应用abi(application binary interface)，abi主要指的是二进制文件执行的架构，x86,arm这些或者32位64位系统
+7. 调用`FileInstallArgs.doRename()`，这里才是真正生成应用目录的地方，在Android11中应该是类似的目录结构`/data/app/~~JfQyWVYLzBkOPnXEZp9YhQ==/com.example.anrdemo-lIG1Gajd9XweYWfdp7eYrw==/base.apk`
+8. 调用`freezePackageForInstall()`停止应用，或者使用`DELETE_DONT_KILL_APP`可以不杀死进程
+9. 整理`PrepareResult`的属性
+
+## scanPackageTracedLI()
+
+直接调用`scanPackageNewLI()`方法，`scanPackageNewLI()`方法具体见[Android 开机应用扫描指南](https://juejin.cn/post/6963828909460684830#heading-6)
+
+## optimisticallyRegisterAppId()
+
+使用这个方法为应用申请uid，之后一路调用到`acquireAndRegisterNewAppIdLPw()`，所有的uid都放在一个mAppIds的ArrayList下面，分配的规则如下：
+
+1. 看一下mAppIds中有没有没被占用的，可以尽量的让空间紧凑，因为安装应用最大也就10000个
+2. 如果都占满了，新增一个
+
+## reconcilePackagesLocked()
+
