@@ -84,3 +84,27 @@
 
 ## reconcilePackagesLocked()
 
+1. 判断是不是已安装的应用，如果是的需要先调用`mayDeletePackageLocked()`构造需要卸载的应用参数
+2. 再次校验签名，不知道为什么要在`preparePackageLI()`中校验一次签名
+3. 构建`ReconciledPackage`
+4. 收集SharedLibrary，可以理解为共享jar包，是虚拟机预先加载过的jar包，最常见的就是framework.jar，其次就是应用使用比较多的httpclient库，它分为三种
+   1. uses-library标签，required=true，对应在AndroidPackage的接口就是`getUsesLibraries()`
+   2. uses-library标签，required=true，对应是`getUsesOptionalLibraries()`
+   3. uses-static-library标签，这种标签目前还没见到人用过`getUsesStaticLibraries()`
+
+## commitPackagesLocked()
+
+1. 判断是覆盖安装还是新增，如果是覆盖安装，继续判断是不是系统应用
+   1. 如果是系统应用，则调用`disableSystemPackageLPw()`
+   2. 如果不是，则调用`executeDeletePackageLIF()`卸载旧应用
+2. 调用`commitReconciledScanResultLocked()`进行继续更新应用在系统中的信息
+3. 调用`updateSettingsLI()`将应用信息缓存，这样就不用在下次开机的时候scan了，直接读取即可
+
+## executePostCommitSteps()
+
+这部分的操作基本都与C++层Installer相关了
+
+1. 调用`prepareAppDataAfterInstallLIF()`创建应用内部存储，比如sharedPreference, sqlite db文件就是存在这个目录当中，开发者应当比较熟悉
+2. 调用`PackageDexOptimizer.performDexOpt.performDexOpt()`进行初步优化
+3. 调用`notifyPackageChangeObserversOnUpdate()`通知native层的进程应用安装
+
