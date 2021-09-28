@@ -1,0 +1,11 @@
+@startuml
+start
+if (/data/system/packages.xml存在) then (yes)
+    :解析packages.xml;
+    :将结果填充到Settings.mPackages中;
+    :返回非第一次开机;
+else (no)
+    :返回是第一次开机;
+endif
+end
+@enduml

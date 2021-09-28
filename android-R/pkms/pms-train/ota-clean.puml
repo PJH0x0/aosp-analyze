@@ -1,0 +1,20 @@
+@startuml
+start
+repeat :遍历Settings.mPackages中的PackageSetting;
+if (ps.pkgFlags & ApplicationInfo.FLAG_SYSTEM == 0) then (yes)
+    :说明不是系统应用;
+    backward :因为针对的是系统应用改变;
+elseif (scannedPkg != null) then (yes)
+    :说明这个系统应用是已扫描到;
+    if (mSettings.isDisabledSystemPackageLPr(ps.name)) then (yes)
+        :说明是disabled系统应用;
+        :扫描到了并且是disabled说明是OTA新增的应用，则放到mExpectingBetter中;
+    else (no)
+        :跳过，说明这就是一个正常的应用;
+    endif
+elseif (!mSettings.isDisabledSystemPackageLPr(ps.name)) then (yes)
+    :说明
+endif
+
+end
+@enduml

@@ -1,0 +1,23 @@
+@startuml
+interface Parcelable
+interface ParsingPackageRead
+interface PkgPackageInfo
+interface PkgAppInfo
+interface AndroidPackage
+interface ParsedPackage
+interface ParsingPackage
+class ParsingPackageImpl
+class PackageImpl 
+
+Parcelable<|--ParsingPackageRead
+ParsingPackageImpl<|--PackageImpl
+ParsedPackage<|..PackageImpl
+AndroidPackage<|..PackageImpl
+Parcelable<|--AndroidPackage
+ParsingPackageRead<|--AndroidPackage
+PkgPackageInfo<|--AndroidPackage
+PkgAppInfo<|--AndroidPackage
+AndroidPackage<|--ParsedPackage
+ParsingPackage<|..ParsingPackageImpl
+Parcelable<|..ParsingPackageImpl
+@enduml

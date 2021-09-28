@@ -1,0 +1,8 @@
+@startuml
+class SharedUserSetting {
+    ~ String name
+    ~ int userId
+    ~ ArraySet<PackageSetting> packages
+    ~ PackageSignatures signatures
+}
+@enduml
